@@ -353,6 +353,16 @@ def index():
     return redirect(url_for('login'))
 
 
+@app.route('/healthz')
+def healthz():
+    try:
+        ensure_initialized()
+        # Simple DB check
+        db.session.execute(db.text('SELECT 1')) if hasattr(db, 'text') else None
+        return 'ok', 200
+    except Exception:
+        return 'error', 500
+
 @app.route('/debug/template-check')
 def debug_template_check():
     """Debug route to check template loading"""
