@@ -388,6 +388,14 @@ def healthz():
     except Exception:
         return 'error', 500
 
+@app.route('/favicon.ico')
+def favicon():
+    """Handle favicon requests - serve logo.png as favicon or return 204"""
+    logo_path = os.path.join(STATIC_DIR, 'logo.png')
+    if os.path.exists(logo_path):
+        return send_file(logo_path, mimetype='image/png')
+    return '', 204
+
 @app.route('/debug/template-check')
 def debug_template_check():
     """Debug route to check template loading"""

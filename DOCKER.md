@@ -94,3 +94,57 @@ ports:
   - "8080:5000"  # 8080 포트로 변경
 ```
 
+## Docker Hub 업로드
+
+### 스크립트 사용 (권장)
+
+```bash
+# Docker Hub에 빌드 및 업로드
+./docker-upload.sh YOUR_DOCKERHUB_USERNAME
+```
+
+이 스크립트는:
+1. Docker Hub 로그인
+2. 이미지 빌드
+3. Docker Hub에 업로드 (latest 및 버전 태그)
+
+### 수동 업로드
+
+```bash
+# 1. Docker Hub 로그인
+docker login
+
+# 2. 이미지 빌드 (태그 포함)
+docker build -t YOUR_USERNAME/busan-insurance:latest .
+
+# 3. Docker Hub에 푸시
+docker push YOUR_USERNAME/busan-insurance:latest
+```
+
+### 업로드된 이미지 사용
+
+```bash
+# Docker Hub에서 이미지 가져오기
+docker pull YOUR_USERNAME/busan-insurance:latest
+
+# 이미지 실행
+docker run -d \
+  -p 8000:5000 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/static:/app/static \
+  -v $(pwd)/uploads:/app/uploads \
+  YOUR_USERNAME/busan-insurance:latest
+```
+
+## 로컬 빌드만 하기
+
+Docker Hub에 업로드하지 않고 로컬에서만 빌드하려면:
+
+```bash
+# 빌드 스크립트 사용
+./docker-build.sh
+
+# 또는 직접 빌드
+docker build -t busan-insurance:local .
+```
+
