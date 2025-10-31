@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}관리자페이지{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">대시보드로</a>
+  </div>
+<div class="d-flex gap-3 flex-wrap">
+  <a class="btn btn-dark" href="{{ url_for('admin_members') }}">회원가입승인</a>
+  <a class="btn btn-dark" href="{{ url_for('admin_insurance') }}">책임보험승인</a>
+  <a class="btn btn-dark" href="{{ url_for('admin_settlement') }}">정산</a>
+</div>
+{% endblock %}
+
+

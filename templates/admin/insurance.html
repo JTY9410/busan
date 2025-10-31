@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}책임보험 승인{% endblock %}
+{% block content %}
+<div class="mb-3 d-flex gap-2 flex-wrap">
+  <a href="{{ url_for('admin_home') }}" class="btn btn-outline-primary">관리자페이지로</a>
+  <a href="{{ url_for('admin_insurance_download') }}" class="btn btn-outline-secondary">데이터다운로드</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form class="row g-2" method="get">
+      <div class="col-md-3">
+        <label class="form-label">신청 시작일</label>
+        <input type="date" name="req_start" class="form-control" value="{{ request.args.get('req_start','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">신청 종료일</label>
+        <input type="date" name="req_end" class="form-control" value="{{ request.args.get('req_end','') }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">승인여부</label>
+        <select name="approved" class="form-select">
+          {% set a = request.args.get('approved','전체') %}
+          <option value="전체" {% if a=='전체' %}selected{% endif %}>전체</option>
+          <option value="승인" {% if a=='승인' %}selected{% endif %}>승인</option>
+          <option value="미승인" {% if a=='미승인' %}selected{% endif %}>미승인</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">승인 시작</label>
+        <input type="date" name="appr_start" class="form-control" value="{{ request.args.get('appr_start','') }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">승인 종료</label>
+        <input type="date" name="appr_end" class="form-control" value="{{ request.args.get('appr_end','') }}">
+      </div>
+      <div class="col-md-12">
+        <button class="btn btn-primary">검색</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<form method="post" class="mb-3">
+  <input type="hidden" name="bulk_approve" value="1">
+  <button class="btn btn-success" type="submit">일괄승인</button>
+</form>
+
+<div class="card">
+  <div class="card-body">
+    <div class="scroll-x">
+      <table class="table table-bordered table-sm sticky-header" style="min-width:1400px">
+        <thead>
+          <tr>
+            <th>순</th>
+            <th>상사명</th>
+            <th>신청시간</th>
+            <th>가입희망일자</th>
+            <th>가입시간</th>
+            <th>종료시간</th>
+            <th>조합승인시간</th>
+            <th>피보험자코드</th>
+            <th>계약자코드</th>
+            <th>한글차량번호</th>
+            <th>차대번호</th>
+            <th>차량명</th>
+            <th>차량등록일자</th>
+            <th>보험료</th>
+            <th>조합승인</th>
+            <th>비고</th>
+            <th>작업</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.created_by_member.company_name if r.created_by_member else '' }}</td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="date" name="desired_start_date" class="form-control form-control-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.desired_start_date }}
+              {% endif %}
+            </td>
+            <td>{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
+            <td>{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td>{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td>{{ r.insured_code }}</td>
+            <td>{{ r.contractor_code }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="car_plate" class="form-control form-control-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_plate }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="vin" class="form-control form-control-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.vin or '' }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="car_name" class="form-control form-control-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_name or '' }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="date" name="car_registered_at" class="form-control form-control-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_registered_at or '' }}
+              {% endif %}
+            </td>
+            <td>9,500</td>
+            <td>{{ '승인' if r.approved_at else '미승인' }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="memo" class="form-control form-control-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="save_memo">
+                  <div class="input-group input-group-sm">
+                    <input type="text" name="memo" class="form-control" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
+                    <button class="btn btn-outline-secondary" type="submit" title="저장">✓</button>
+                  </div>
+                </form>
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <form id="edit_form_{{ r.id }}" method="post" class="d-inline">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="save">
+                  <button class="btn btn-sm btn-success" type="submit">저장</button>
+                  <a href="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="btn btn-sm btn-secondary">취소</a>
+                </form>
+              {% else %}
+                <a href="{{ url_for('admin_insurance', edit_id=r.id, req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="btn btn-sm btn-primary">수정</a>
+                <form method="post" class="d-inline" onsubmit="return confirm('삭제하시겠습니까?')">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="delete">
+                  <button class="btn btn-sm btn-danger" type="submit">삭제</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

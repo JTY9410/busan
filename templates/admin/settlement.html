@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}정산{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('admin_home') }}" class="btn btn-outline-primary">관리자페이지로</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form class="row g-2" method="get">
+      <div class="col-md-2">
+        <label class="form-label">년도</label>
+        <input type="number" name="year" class="form-control" value="{{ year }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">월</label>
+        <input type="number" name="month" class="form-control" value="{{ month }}" min="1" max="12">
+      </div>
+      <div class="col-md-3 align-self-end">
+        <button class="btn btn-primary">정산</button>
+      </div>
+      <div class="col-md-5 align-self-end text-end">
+        <a class="btn btn-outline-secondary" href="{{ url_for('admin_invoice_batch', year=year, month=month) }}" target="_blank">청구서 일괄 저장(인쇄)</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="scroll-x">
+      <table class="table table-bordered table-sm sticky-header" style="min-width:900px">
+        <thead>
+          <tr>
+            <th>상사명</th>
+            <th>대표자</th>
+            <th>건수</th>
+            <th>금액</th>
+            <th>비고</th>
+            <th>작업</th>
+            <th>청구서</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in settlements %}
+          <tr>
+            <td>{{ s.company }}</td>
+            <td>{{ s.representative }}</td>
+            <td>{{ s.count }}</td>
+            <td>{{ '{:,}'.format(s.amount) }}</td>
+            <td></td>
+            <td>
+              <a class="btn btn-sm btn-outline-primary" href="#">수정</a>
+            </td>
+            <td>
+              <a class="btn btn-sm btn-success" target="_blank" href="{{ url_for('admin_invoice', company=s.company, representative=s.representative, business_number=s.business_number, count=s.count, amount=s.amount, year=year, month=month) }}">청구서</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

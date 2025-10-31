@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}대시보드 - 책임보험{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h3 class="mb-4">대시보드</h3>
+    <div class="d-flex gap-3 flex-wrap">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('insurance') }}">
+        <i class="bi bi-shield-check"></i> 책임보험가입
+      </a>
+      <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('terms') }}">
+        <i class="bi bi-file-text"></i> 책임보험약관
+      </a>
+      <a class="btn btn-dark btn-lg" href="{{ url_for('admin_home') }}">
+        <i class="bi bi-gear"></i> 관리자페이지
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+!data/.gitkeep
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Uploads
+uploads/
+!uploads/.gitkeep
+
+# Static files (로고는 제외하고 빌드된 파일만)
+static/
+!static/.gitkeep
+
+# Docker
+.docker/
+
+# 기타
+*.bak
+*.tmp
+

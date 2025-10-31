@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}책임보험가입{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">대시보드로</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="mb-3">검색</h6>
+        <form class="row g-2" method="get">
+          <div class="col-md-4">
+            <label class="form-label">시작일</label>
+            <input type="date" class="form-control" name="start_date" value="{{ request.args.get('start_date','') }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">종료일</label>
+            <input type="date" class="form-control" name="end_date" value="{{ request.args.get('end_date','') }}">
+          </div>
+          <div class="col-md-4 align-self-end">
+            <button class="btn btn-primary w-100" type="submit">검색</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="mb-3">신규가입 / 엑셀</h6>
+        <form class="row g-2" method="post">
+          <div class="col-md-6">
+            <label class="form-label">가입희망일자</label>
+            <input type="date" name="desired_start_date" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">피보험자코드</label>
+            <input type="text" class="form-control" value="{{ current_user.business_number or '' }}" readonly>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">계약자코드</label>
+            <input type="text" class="form-control" value="부산자동차매매사업자조합" readonly>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">한글차량번호</label>
+            <input type="text" name="car_plate" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">차대번호</label>
+            <input type="text" name="vin" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">차량명</label>
+            <input type="text" name="car_name" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">차량등록일자</label>
+            <input type="date" name="car_registered_at" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">비고</label>
+            <input type="text" name="memo" class="form-control">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-success" type="submit">신청</button>
+          </div>
+        </form>
+        <div class="mt-3">
+          <a class="btn btn-outline-secondary" href="{{ url_for('insurance_template_download') }}">엑셀업로드양식</a>
+        </div>
+        <form class="mt-2" action="{{ url_for('insurance_upload') }}" method="post" enctype="multipart/form-data">
+          <div class="input-group">
+            <input type="file" class="form-control" name="file" accept=".xlsx">
+            <button class="btn btn-outline-primary" type="submit">엑셀업로드</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="scroll-x">
+      <table class="table table-bordered table-sm align-middle sticky-header" style="min-width:1600px">
+        <thead>
+          <tr>
+            <th>순</th>
+            <th>신청시간</th>
+            <th>가입희망일자</th>
+            <th>가입시간</th>
+            <th>종료시간</th>
+            <th>조합승인시간</th>
+            <th>피보험자코드</th>
+            <th>계약자코드</th>
+            <th>한글차량번호</th>
+            <th>차대번호</th>
+            <th>차량명</th>
+            <th>차량등록일자</th>
+            <th>보험료</th>
+            <th>현재상태</th>
+            <th>비고</th>
+            <th>작업</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="date" name="desired_start_date" class="form-control form-control-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.desired_start_date }}
+              {% endif %}
+            </td>
+            <td>{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
+            <td>{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td>{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td>{{ r.insured_code }}</td>
+            <td>{{ r.contractor_code }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="car_plate" class="form-control form-control-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_plate }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="vin" class="form-control form-control-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.vin or '' }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="car_name" class="form-control form-control-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_name or '' }}
+              {% endif %}
+            </td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="date" name="car_registered_at" class="form-control form-control-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.car_registered_at or '' }}
+              {% endif %}
+            </td>
+            <td>9,500</td>
+            <td>{{ r.status }}</td>
+            <td>
+              {% if edit_id == r.id|string %}
+                <input type="text" name="memo" class="form-control form-control-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {% if not r.approved_at %}
+                  <form id="memo_form_{{ r.id }}" method="post" class="d-inline">
+                    <input type="hidden" name="row_id" value="{{ r.id }}">
+                    <input type="hidden" name="action" value="save">
+                    <div class="input-group input-group-sm">
+                      <input type="text" name="memo" class="form-control" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
+                      <button class="btn btn-outline-secondary" type="submit" title="저장">✓</button>
+                    </div>
+                  </form>
+                {% else %}
+                  {{ r.memo or '' }}
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              {% if not r.approved_at %}
+                {% if edit_id == r.id|string %}
+                  <form id="edit_form_{{ r.id }}" method="post" class="d-inline">
+                    <input type="hidden" name="row_id" value="{{ r.id }}">
+                    <input type="hidden" name="action" value="save">
+                    <button class="btn btn-sm btn-success" type="submit">저장</button>
+                    <a href="{{ url_for('insurance', start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-sm btn-secondary">취소</a>
+                  </form>
+                {% else %}
+                  <a href="{{ url_for('insurance', edit_id=r.id, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-sm btn-primary">수정</a>
+                  <form method="post" class="d-inline" onsubmit="return confirm('삭제하시겠습니까?')">
+                    <input type="hidden" name="row_id" value="{{ r.id }}">
+                    <input type="hidden" name="action" value="delete">
+                    <button class="btn btn-sm btn-danger" type="submit">삭제</button>
+                  </form>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

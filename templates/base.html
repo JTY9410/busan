@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}부산 조합 책임 보험{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .sticky-header thead th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+    .scroll-x { overflow-x: auto; }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" style="height:36px" class="me-2">
+        <span class="fw-bold">책임보험가입신청</span>
+      </a>
+      <div class="d-flex">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary me-2">대시보드</a>
+          <a href="{{ url_for('terms') }}" class="btn btn-outline-secondary me-2">책임보험약관</a>
+          <a href="{{ url_for('admin_home') }}" class="btn btn-outline-dark me-2">관리자페이지</a>
+          <a href="{{ url_for('logout') }}" class="btn btn-danger">로그아웃</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="btn btn-primary me-2">로그인</a>
+          <a href="{{ url_for('register') }}" class="btn btn-outline-primary">회원가입</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
