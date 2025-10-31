@@ -161,6 +161,10 @@
                   <input type="hidden" name="action" value="delete">
                   <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">삭제</button>
                 </form>
+                {# Hidden form for approve action #}
+                <form id="action_form_{{ r.id }}" method="post" class="hidden">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                </form>
               {% endif %}
             </td>
           </tr>
