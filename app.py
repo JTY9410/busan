@@ -52,6 +52,12 @@ def create_app():
                 instance_path=instance_path)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
     
+    # Disable template caching in development
+    if not is_vercel:
+        app.config['TEMPLATES_AUTO_RELOAD'] = True
+        app.jinja_env.auto_reload = True
+        app.jinja_env.cache = {}
+    
     # Database configuration with Vercel support
     if is_vercel:
         # Check for external database first
@@ -329,6 +335,37 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
+
+
+@app.route('/debug/template-check')
+def debug_template_check():
+    """Debug route to check template loading"""
+    if not app.debug and is_vercel:
+        return "Debug disabled", 404
+    
+    import os
+    template_path = os.path.join(TEMPLATE_DIR, 'admin', 'insurance.html')
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Check if the template has been updated
+        has_filter = 'to_local_datetime' in content
+        has_old_syntax = 'tzlocal()' in content
+        
+        return f"""
+        <h1>Template Debug Info</h1>
+        <p><strong>Template Path:</strong> {template_path}</p>
+        <p><strong>File exists:</strong> {os.path.exists(template_path)}</p>
+        <p><strong>Has new filter:</strong> {has_filter}</p>
+        <p><strong>Has old syntax:</strong> {has_old_syntax}</p>
+        <p><strong>Template cache disabled:</strong> {app.config.get('TEMPLATES_AUTO_RELOAD', False)}</p>
+        <hr>
+        <h2>Line 86 area:</h2>
+        <pre>{chr(10).join(content.split(chr(10))[83:89])}</pre>
+        """
+    except Exception as e:
+        return f"Error reading template: {e}"
 
 
 @app.route('/login', methods=['GET', 'POST'])
