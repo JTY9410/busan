@@ -23,9 +23,10 @@ LOGO_SRC_FILENAME = 'logo.png'
 LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
 
 # Ensure directories exist
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(STATIC_DIR, exist_ok=True)
+if not os.environ.get('VERCEL_ENV'):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    os.makedirs(STATIC_DIR, exist_ok=True)
 
 
 def create_app():
