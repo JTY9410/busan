@@ -80,6 +80,7 @@ class Member(UserMixin, db.Model):
     __table_args__ = (
         Index('idx_member_created_at', 'created_at'),
         CheckConstraint("approval_status IN ('신청','승인중','승인')", name='ck_member_approval_status'),
+        CheckConstraint("role IN ('member','admin')", name='ck_member_role'),
     )
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(120), unique=True, nullable=False)
@@ -94,6 +95,7 @@ class Member(UserMixin, db.Model):
     email = db.Column(db.String(255))
     registration_cert_path = db.Column(db.String(512))
     approval_status = db.Column(db.String(32), default='신청')  # 신청, 승인중, 승인
+    role = db.Column(db.String(32), default='member')  # member, admin
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(tzlocal()))
 
     def set_password(self, password: str) -> None:
@@ -159,6 +161,17 @@ def init_db_and_assets():
     """데이터베이스 및 리소스 초기화"""
     db.create_all()
     ensure_logo()
+
+    # 스키마 보정: role 컬럼이 없으면 추가
+    try:
+        from sqlalchemy import text
+        res = db.session.execute(text("PRAGMA table_info(member)"))
+        cols = [r[1] for r in res.fetchall()]
+        if 'role' not in cols:
+            db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
+            db.session.commit()
+    except Exception:
+        pass
     
     # 관리자 계정 생성 (없으면 생성)
     admin_username = 'busan'
@@ -170,11 +183,27 @@ def init_db_and_assets():
             business_number='0000000000',
             representative='관리자',
             approval_status='승인',
+            role='admin',
         )
         admin.set_password('busan123')
         db.session.add(admin)
         db.session.commit()
         print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: busan123')
+    else:
+        if not getattr(admin, 'role', None) or admin.role != 'admin':
+            admin.role = 'admin'
+            db.session.commit()
+
+# 관리자 권한 데코레이터
+def admin_required(view):
+    from functools import wraps
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_user.is_authenticated or getattr(current_user, 'role', 'member') != 'admin':
+            flash('관리자만 접근 가능합니다.', 'warning')
+            return redirect(url_for('dashboard'))
+        return view(*args, **kwargs)
+    return wrapped
 
 
 # Flask 애플리케이션 시작 시 초기화
@@ -499,12 +528,14 @@ def insurance_upload():
 
 @app.route('/admin')
 @login_required
+@admin_required
 def admin_home():
     return render_template('admin/index.html')
 
 
 @app.route('/admin/members', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def admin_members():
     if request.method == 'POST':
         action = request.form.get('action')
@@ -525,6 +556,7 @@ def admin_members():
                     m.mobile = request.form.get('mobile', '').strip()
                     m.email = request.form.get('email', '').strip()
                     m.approval_status = request.form.get('approval_status', '신청')
+                    m.role = request.form.get('role', m.role or 'member')
                     db.session.commit()
                     flash('저장되었습니다.', 'success')
                     return redirect(url_for('admin_members'))
@@ -545,6 +577,7 @@ def admin_members():
                 mobile = request.form.get('mobile', '').strip()
                 email = request.form.get('email', '').strip()
                 approval_status = request.form.get('approval_status', '승인')
+                role = request.form.get('role', 'member')
                 if not username or not company_name or not business_number:
                     flash('아이디/상사명/사업자번호는 필수입니다.', 'warning')
                 elif Member.query.filter((Member.username == username) | (Member.business_number == business_number)).first():
@@ -561,6 +594,7 @@ def admin_members():
                         mobile=mobile,
                         email=email,
                         approval_status=approval_status,
+                        role=role,
                     )
                     nm.set_password(password)
                     db.session.add(nm)
@@ -575,6 +609,7 @@ def admin_members():
 
 @app.route('/admin/members/upload', methods=['POST'])
 @login_required
+@admin_required
 def admin_members_upload():
     file = request.files.get('file')
     if not file:
@@ -610,6 +645,7 @@ def admin_members_upload():
                 mobile=str(row.get('mobile', '') or '').strip(),
                 email=str(row.get('email', '') or '').strip(),
                 approval_status=str(row.get('approval_status', '승인') or '승인').strip() or '승인',
+                role=str(row.get('role', 'member') or 'member').strip() or 'member',
             )
             password = str(row.get('password', 'temp1234'))
             m.set_password(password)
@@ -624,6 +660,7 @@ def admin_members_upload():
 
 @app.route('/admin/insurance', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def admin_insurance():
     if request.method == 'POST':
         if request.form.get('bulk_approve') == '1':
@@ -705,6 +742,7 @@ def admin_insurance():
 
 @app.route('/admin/insurance/download')
 @login_required
+@admin_required
 def admin_insurance_download():
     # Export to Excel
     rows = InsuranceApplication.query.order_by(InsuranceApplication.created_at.desc()).all()
@@ -742,6 +780,7 @@ def admin_insurance_download():
 
 @app.route('/admin/settlement')
 @login_required
+@admin_required
 def admin_settlement():
     year = int(request.args.get('year', datetime.now().year))
     month = int(request.args.get('month', datetime.now().month))
@@ -785,6 +824,7 @@ def admin_settlement():
 
 @app.route('/admin/invoice')
 @login_required
+@admin_required
 def admin_invoice():
     company = request.args.get('company', '')
     representative = request.args.get('representative', '')
@@ -805,6 +845,7 @@ def admin_invoice():
 
 @app.route('/admin/invoice/batch')
 @login_required
+@admin_required
 def admin_invoice_batch():
     # Render a combined printable page for all companies for the selected month
     year = int(request.args.get('year', datetime.now().year))
