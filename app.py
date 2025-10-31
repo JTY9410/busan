@@ -532,10 +532,94 @@ def admin_members():
                     db.session.delete(m)
                     db.session.commit()
                     flash('삭제되었습니다.', 'success')
-    
+        else:
+            if action == 'create':
+                username = request.form.get('username', '').strip()
+                password = request.form.get('password', 'temp1234')
+                company_name = request.form.get('company_name', '').strip()
+                address = request.form.get('address', '').strip()
+                business_number = request.form.get('business_number', '').strip()
+                corporation_number = request.form.get('corporation_number', '').strip()
+                representative = request.form.get('representative', '').strip()
+                phone = request.form.get('phone', '').strip()
+                mobile = request.form.get('mobile', '').strip()
+                email = request.form.get('email', '').strip()
+                approval_status = request.form.get('approval_status', '승인')
+                if not username or not company_name or not business_number:
+                    flash('아이디/상사명/사업자번호는 필수입니다.', 'warning')
+                elif Member.query.filter((Member.username == username) | (Member.business_number == business_number)).first():
+                    flash('이미 존재하는 아이디 또는 사업자번호입니다.', 'danger')
+                else:
+                    nm = Member(
+                        username=username,
+                        company_name=company_name,
+                        address=address,
+                        business_number=business_number,
+                        corporation_number=corporation_number,
+                        representative=representative,
+                        phone=phone,
+                        mobile=mobile,
+                        email=email,
+                        approval_status=approval_status,
+                    )
+                    nm.set_password(password)
+                    db.session.add(nm)
+                    db.session.commit()
+                    flash('회원이 추가되었습니다.', 'success')
+                return redirect(url_for('admin_members'))
+
     edit_id = request.args.get('edit_id')
     members = Member.query.order_by(Member.created_at.desc()).all()
     return render_template('admin/members.html', members=members, edit_id=edit_id)
+
+
+@app.route('/admin/members/upload', methods=['POST'])
+@login_required
+def admin_members_upload():
+    file = request.files.get('file')
+    if not file:
+        flash('엑셀 파일을 선택하세요.', 'warning')
+        return redirect(url_for('admin_members'))
+    try:
+        df = pd.read_excel(file)
+        created = 0
+        skipped = 0
+        required_cols = {'username', 'company_name', 'business_number'}
+        if not required_cols.issubset(set(df.columns)):
+            flash('엑셀 컬럼이 올바르지 않습니다. (필수: username, company_name, business_number)', 'danger')
+            return redirect(url_for('admin_members'))
+        for _, row in df.iterrows():
+            username = str(row.get('username', '')).strip()
+            company_name = str(row.get('company_name', '')).strip()
+            business_number = str(row.get('business_number', '')).strip()
+            if not username or not company_name or not business_number:
+                skipped += 1
+                continue
+            # Dup checks
+            if Member.query.filter((Member.username == username) | (Member.business_number == business_number)).first():
+                skipped += 1
+                continue
+            m = Member(
+                username=username,
+                company_name=company_name,
+                address=str(row.get('address', '') or '').strip(),
+                business_number=business_number,
+                corporation_number=str(row.get('corporation_number', '') or '').strip(),
+                representative=str(row.get('representative', '') or '').strip(),
+                phone=str(row.get('phone', '') or '').strip(),
+                mobile=str(row.get('mobile', '') or '').strip(),
+                email=str(row.get('email', '') or '').strip(),
+                approval_status=str(row.get('approval_status', '승인') or '승인').strip() or '승인',
+            )
+            password = str(row.get('password', 'temp1234'))
+            m.set_password(password)
+            db.session.add(m)
+            created += 1
+        db.session.commit()
+        flash(f'일괄 업로드 완료: 추가 {created}건, 건너뜀 {skipped}건', 'success')
+    except Exception:
+        flash('업로드 처리 중 오류가 발생했습니다.', 'danger')
+    return redirect(url_for('admin_members'))
 
 
 @app.route('/admin/insurance', methods=['GET', 'POST'])

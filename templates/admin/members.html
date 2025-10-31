@@ -1,8 +1,76 @@
 {% extends 'base.html' %}
 {% block title %}회원가입승인{% endblock %}
 {% block content %}
-<div class="mb-4">
+<div class="mb-4 flex flex-wrap gap-2 items-center">
   <a href="{{ url_for('admin_home') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>관리자페이지로</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+  <div class="bg-white shadow-md rounded-lg p-4">
+    <h5 class="text-lg font-semibold text-gray-800 mb-3">회원추가</h5>
+    <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <input type="hidden" name="action" value="create">
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">아이디<span class="text-red-500">*</span></label>
+        <input type="text" name="username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">비밀번호</label>
+        <input type="text" name="password" placeholder="미입력시 temp1234" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">상사명<span class="text-red-500">*</span></label>
+        <input type="text" name="company_name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">사업자번호<span class="text-red-500">*</span></label>
+        <input type="text" name="business_number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">주소</label>
+        <input type="text" name="address" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">법인번호</label>
+        <input type="text" name="corporation_number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">대표자</label>
+        <input type="text" name="representative" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">연락처</label>
+        <input type="text" name="phone" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">휴대폰</label>
+        <input type="text" name="mobile" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">이메일</label>
+        <input type="email" name="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-700 font-semibold mb-1">승인상태</label>
+        <select name="approval_status" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+          <option value="신청">신청</option>
+          <option value="승인중">승인중</option>
+          <option value="승인" selected>승인</option>
+        </select>
+      </div>
+      <div class="md:col-span-2 flex justify-end">
+        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">회원추가</button>
+      </div>
+    </form>
+  </div>
+  <div class="bg-white shadow-md rounded-lg p-4">
+    <h5 class="text-lg font-semibold text-gray-800 mb-3">회원 일괄 업로드</h5>
+    <div class="mb-2 text-sm text-gray-600">필수 컬럼: username, company_name, business_number / 선택 컬럼: password, address, corporation_number, representative, phone, mobile, email, approval_status</div>
+    <form action="{{ url_for('admin_members_upload') }}" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
+      <input type="file" name="file" accept=".xlsx,.xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+      <button class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">일괄업로드</button>
+    </form>
+  </div>
 </div>
 
 <div class="bg-white shadow-md rounded-lg p-6">
