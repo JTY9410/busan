@@ -17,16 +17,37 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 # 한국 시간대 설정
 KST = gettz('Asia/Seoul')
 
-# Vercel-compatible paths: use /tmp for writable operations
-is_vercel = os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV')
-if is_vercel:
+# Robust detection for serverless / read-only FS
+def _is_read_only_fs() -> bool:
+    try:
+        test_dir = "/var/task/__wtest__"
+        os.makedirs(test_dir, exist_ok=True)
+        test_file = os.path.join(test_dir, "t")
+        with open(test_file, "wb") as f:
+            f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
+        os.remove(test_file)
+        return False
+    except OSError:
+        return True
+
+is_serverless = bool(
+    os.environ.get('VERCEL') or
+    os.environ.get('VERCEL_ENV') or
+    os.environ.get('AWS_LAMBDA_FUNCTION_NAME') or
+    os.environ.get('LAMBDA_TASK_ROOT') or
+    os.environ.get('K_SERVICE') or
+    _is_read_only_fs()
+)
+
+if is_serverless:
     INSTANCE_DIR = os.environ.get('INSTANCE_PATH', '/tmp/instance')
     DATA_DIR = os.environ.get('DATA_DIR', '/tmp/data')
-    UPLOAD_DIR = '/tmp/uploads'
+    UPLOAD_DIR = os.environ.get('UPLOAD_DIR', '/tmp/uploads')
 else:
     INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
     DATA_DIR = os.path.join(BASE_DIR, 'data')
     UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+
 
 DB_PATH = os.path.join(DATA_DIR, 'busan.db')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -37,19 +58,21 @@ LOGO_SRC_FILENAME = 'logo.png'
 LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
 
 # Ensure directories exist
-if is_vercel:
-    os.makedirs(INSTANCE_DIR, exist_ok=True)
-    os.makedirs(DATA_DIR, exist_ok=True)
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+if is_serverless:
+    os.makedirs(INSTANCE_DIR, exist_ok=True)  # /tmp/instance
+    os.makedirs(DATA_DIR, exist_ok=True)      # /tmp/data
+    os.makedirs(UPLOAD_DIR, exist_ok=True)    # /tmp/uploads
 else:
+    os.makedirs(INSTANCE_DIR, exist_ok=True)  # 로컬에서도 만들어두는 편이 안전
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(STATIC_DIR, exist_ok=True)
 
 
+
 def create_app():
     # Use instance_path for Vercel compatibility
-    instance_path = INSTANCE_DIR if is_vercel else None
+    instance_path = INSTANCE_DIR if is_serverless else None
     app = Flask(__name__, 
                 template_folder=TEMPLATE_DIR, 
                 static_folder=STATIC_DIR,
@@ -57,13 +80,13 @@ def create_app():
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
     
     # Disable template caching in development
-    if not is_vercel:
+    if not is_serverless:
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         app.jinja_env.auto_reload = True
         app.jinja_env.cache = {}
     
     # Database configuration with Vercel support
-    if is_vercel:
+    if is_serverless:
         # Check for external database first
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
@@ -142,7 +165,7 @@ def _ensure_aware(dt):
 
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사"""
-    if is_vercel:
+    if is_serverless:
         # Vercel 환경에서는 static 디렉토리에 쓸 수 없으므로 이 작업 건너뛰기
         return
     os.makedirs(STATIC_DIR, exist_ok=True)
@@ -272,7 +295,7 @@ def init_db_and_assets():
             res = db.session.execute(text("PRAGMA table_info(member)"))
             cols = [r[1] for r in res.fetchall()]
             if 'role' not in cols:
-                if not is_vercel:  # Vercel 환경이 아니면 스키마 변경
+                if not is_serverless:  # Vercel 환경이 아니면 스키마 변경
                     db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
                     db.session.commit()
     except Exception:
@@ -325,14 +348,16 @@ def ensure_initialized():
 @event.listens_for(db.engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     try:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+        # SQLite 전용 PRAGMA
+        if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
     except Exception:
         pass
 
 # Initialize immediately for non-Vercel environments
-if not is_vercel:
+if not is_serverless:
     with app.app_context():
         ensure_initialized()
 
@@ -366,7 +391,7 @@ def healthz():
 @app.route('/debug/template-check')
 def debug_template_check():
     """Debug route to check template loading"""
-    if not app.debug and is_vercel:
+    if not app.debug and is_serverless:
         return "Debug disabled", 404
     
     import os
@@ -441,7 +466,7 @@ def register():
 
         # 파일 업로드 처리
         registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
-        if not is_vercel and 'registration_cert' in request.files:
+        if not is_serverless and 'registration_cert' in request.files:
             file = request.files['registration_cert']
             if file and file.filename:
                 allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
@@ -484,7 +509,7 @@ def dashboard():
 @login_required
 def uploaded_file(filename):
     """업로드된 파일 제공"""
-    if is_vercel:
+    if is_serverless:
         flash('Vercel 환경에서는 파일 제공이 제한됩니다.', 'warning')
         return redirect(url_for('dashboard'))
     return send_file(os.path.join(UPLOAD_DIR, filename))
@@ -690,7 +715,7 @@ def insurance_template_download():
 @app.route('/insurance/upload', methods=['POST'])
 @login_required
 def insurance_upload():
-    if is_vercel:
+    if is_serverless:
         flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
         return redirect(url_for('insurance'))
     file = request.files.get('file')
@@ -828,7 +853,7 @@ def admin_members():
 @login_required
 @admin_required
 def admin_members_upload():
-    if is_vercel:
+    if is_serverless:
         flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
         return redirect(url_for('admin_members'))
     file = request.files.get('file')
