@@ -16,8 +16,10 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사
+# 애플리케이션 코드 복사 (템플릿 캐시 방지)
 COPY . /app
+RUN find /app -name "*.pyc" -delete
+RUN find /app -name "__pycache__" -type d -exec rm -rf {} + || true
 
 # 필요한 디렉토리 생성
 RUN mkdir -p /app/static /app/uploads /app/templates
