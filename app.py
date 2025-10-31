@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime, timedelta
-from dateutil.tz import tzlocal
+from dateutil.tz import tzlocal, gettz
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
@@ -12,6 +12,9 @@ import pandas as pd
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# 한국 시간대 설정
+KST = gettz('Asia/Seoul')
 
 # Vercel-compatible paths: use /tmp for writable operations
 is_vercel = os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV')
@@ -105,7 +108,7 @@ def to_local_datetime(dt):
     if not dt:
         return ''
     try:
-        local_dt = dt.astimezone(tzlocal())
+        local_dt = dt.astimezone(KST)
         return local_dt.strftime('%Y-%m-%dT%H:%M')
     except Exception:
         return ''
@@ -130,7 +133,7 @@ def _ensure_aware(dt):
     try:
         # tz-naive if no tzinfo or utcoffset is None
         if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-            return dt.replace(tzinfo=tzlocal())
+            return dt.replace(tzinfo=KST)
         return dt
     except Exception:
         return dt
@@ -192,7 +195,7 @@ class Member(UserMixin, db.Model):
     registration_cert_path = db.Column(db.String(512))
     approval_status = db.Column(db.String(32), default='신청')  # 신청, 승인중, 승인
     role = db.Column(db.String(32), default='member')  # member, admin
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(tzlocal()))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -214,7 +217,7 @@ class InsuranceApplication(db.Model):
         CheckConstraint("status IN ('신청','조합승인','가입','종료')", name='ck_ins_app_status'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(tzlocal()))  # 신청시간 (timezone-aware)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))  # 신청시간 (timezone-aware)
     desired_start_date = db.Column(db.Date, nullable=False)  # 가입희망일자
     start_at = db.Column(db.DateTime(timezone=True))  # 가입시간 (timezone-aware)
     end_at = db.Column(db.DateTime(timezone=True))  # 종료시간 (timezone-aware)
@@ -233,7 +236,7 @@ class InsuranceApplication(db.Model):
     created_by_member = db.relationship('Member', backref='applications')
 
     def recompute_status(self) -> None:
-        now = datetime.now(tzlocal())
+        now = datetime.now(KST)
         approved_at_local = _ensure_aware(self.approved_at)
         end_at_local = _ensure_aware(self.end_at)
         # After approval + 2 hours -> 가입
@@ -242,7 +245,7 @@ class InsuranceApplication(db.Model):
                 self.status = '가입'
                 if not self.start_at: # 이미 start_at이 설정되어 있지 않은 경우에만 자동 설정
                     # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
-                    start_date = datetime.combine(self.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
+                    start_date = datetime.combine(self.desired_start_date, datetime.min.time(), tzinfo=KST)
                     self.start_at = start_date
                     self.end_at = start_date + timedelta(days=30)
         # 종료일 경과 -> 종료
@@ -420,7 +423,7 @@ def register():
                 allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
                 file_ext = os.path.splitext(file.filename)[1].lower()
                 if file_ext in allowed_extensions:
-                    timestamp = datetime.now(tzlocal()).strftime('%Y%m%d_%H%M%S')
+                    timestamp = datetime.now(KST).strftime('%Y%m%d_%H%M%S')
                     filename = f"{business_number}_{timestamp}{file_ext}"
                     filepath = os.path.join(UPLOAD_DIR, filename)
                     file.save(filepath)
@@ -602,7 +605,33 @@ def insurance():
     if changed:
         db.session.commit()
 
-    return render_template('insurance.html', rows=rows, edit_id=edit_id)
+    # Build view models with proper timezone formatting
+    def fmt_display_safe(dt):
+        if not dt:
+            return ''
+        try:
+            # Ensure timezone-aware datetime and convert to KST
+            if dt.tzinfo is None:
+                # If naive, assume it's already in KST
+                local_dt = dt.replace(tzinfo=KST)
+            else:
+                # Convert to KST
+                local_dt = dt.astimezone(KST)
+            return local_dt.strftime('%Y-%m-%d %H:%M')
+        except Exception:
+            return ''
+
+    items = []
+    for r in rows:
+        items.append({
+            'id': r.id,
+            'created_at_str': fmt_display_safe(r.created_at),
+            'start_at_str': fmt_display_safe(r.start_at),
+            'end_at_str': fmt_display_safe(r.end_at),
+            'approved_at_str': fmt_display_safe(r.approved_at),
+        })
+
+    return render_template('insurance.html', rows=rows, items=items, edit_id=edit_id)
 
 
 @app.route('/insurance/template')
@@ -830,13 +859,13 @@ def admin_insurance():
             rows = InsuranceApplication.query.filter(
                 (InsuranceApplication.approved_at.is_(None))
             ).all()
-            now = datetime.now(tzlocal())
+            now = datetime.now(KST)
             for r in rows:
                 r.approved_at = now
                 r.status = '조합승인'
                 # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
                 if not r.start_at:
-                    start_date_aware = datetime.combine(r.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
+                    start_date_aware = datetime.combine(r.desired_start_date, datetime.min.time(), tzinfo=KST)
                     r.start_at = start_date_aware
                     r.end_at = start_date_aware + timedelta(days=30)
             db.session.commit()
@@ -860,11 +889,11 @@ def admin_insurance():
             if row and action:
                 if action == 'approve':
                     print(f"DEBUG: Approving row {row.id}")  # 디버그 로그
-                    row.approved_at = datetime.now(tzlocal())
+                    row.approved_at = datetime.now(KST)
                     row.status = '조합승인'
                     # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
                     if not row.start_at:
-                        start_date_aware = datetime.combine(row.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
+                        start_date_aware = datetime.combine(row.desired_start_date, datetime.min.time(), tzinfo=KST)
                         row.start_at = start_date_aware
                         row.end_at = start_date_aware + timedelta(days=30)
                     db.session.commit()
@@ -907,17 +936,17 @@ def admin_insurance():
 
     q = InsuranceApplication.query
     if req_start:
-        q = q.filter(InsuranceApplication.created_at >= datetime.combine(req_start, datetime.min.time(), tzinfo=tzlocal()))
+        q = q.filter(InsuranceApplication.created_at >= datetime.combine(req_start, datetime.min.time(), tzinfo=KST))
     if req_end:
-        q = q.filter(InsuranceApplication.created_at <= datetime.combine(req_end, datetime.max.time(), tzinfo=tzlocal()))
+        q = q.filter(InsuranceApplication.created_at <= datetime.combine(req_end, datetime.max.time(), tzinfo=KST))
     if approved_filter == '승인':
         q = q.filter(InsuranceApplication.approved_at.is_not(None))
     elif approved_filter == '미승인':
         q = q.filter(InsuranceApplication.approved_at.is_(None))
     if appr_start:
-        q = q.filter(InsuranceApplication.approved_at >= datetime.combine(appr_start, datetime.min.time(), tzinfo=tzlocal()))
+        q = q.filter(InsuranceApplication.approved_at >= datetime.combine(appr_start, datetime.min.time(), tzinfo=KST))
     if appr_end:
-        q = q.filter(InsuranceApplication.approved_at <= datetime.combine(appr_end, datetime.max.time(), tzinfo=tzlocal()))
+        q = q.filter(InsuranceApplication.approved_at <= datetime.combine(appr_end, datetime.max.time(), tzinfo=KST))
 
     rows = q.order_by(InsuranceApplication.created_at.desc()).all()
     for r in rows:
@@ -929,7 +958,14 @@ def admin_insurance():
         if not dt:
             return ''
         try:
-            return dt.strftime('%Y-%m-%d %H:%M')
+            # Ensure timezone-aware datetime and convert to KST
+            if dt.tzinfo is None:
+                # If naive, assume it's already in KST
+                local_dt = dt.replace(tzinfo=KST)
+            else:
+                # Convert to KST
+                local_dt = dt.astimezone(KST)
+            return local_dt.strftime('%Y-%m-%d %H:%M')
         except Exception:
             return ''
 
@@ -937,7 +973,13 @@ def admin_insurance():
         if not dt:
             return ''
         try:
-            local_dt = dt.astimezone(tzlocal())
+            # Ensure timezone-aware datetime and convert to KST
+            if dt.tzinfo is None:
+                # If naive, assume it's already in KST
+                local_dt = dt.replace(tzinfo=KST)
+            else:
+                # Convert to KST
+                local_dt = dt.astimezone(KST)
             return local_dt.strftime('%Y-%m-%dT%H:%M')
         except Exception:
             return ''
@@ -1013,11 +1055,11 @@ def admin_settlement():
     month = int(request.args.get('month', datetime.now().month))
 
     # 기준: 책임보험 승인페이지에서 해당 년/월 데이터 (시작일 기준)
-    start_period = datetime(year, month, 1, tzinfo=tzlocal())
+    start_period = datetime(year, month, 1, tzinfo=KST)
     if month == 12:
-        next_month = datetime(year + 1, 1, 1, tzinfo=tzlocal())
+        next_month = datetime(year + 1, 1, 1, tzinfo=KST)
     else:
-        next_month = datetime(year, month + 1, 1, tzinfo=tzlocal())
+        next_month = datetime(year, month + 1, 1, tzinfo=KST)
 
     rows = InsuranceApplication.query.filter(
         InsuranceApplication.start_at.is_not(None),
@@ -1082,11 +1124,11 @@ def admin_invoice_batch():
     year = int(request.args.get('year', datetime.now().year))
     month = int(request.args.get('month', datetime.now().month))
 
-    start_period = datetime(year, month, 1, tzinfo=tzlocal())
+    start_period = datetime(year, month, 1, tzinfo=KST)
     if month == 12:
-        next_month = datetime(year + 1, 1, 1, tzinfo=tzlocal())
+        next_month = datetime(year + 1, 1, 1, tzinfo=KST)
     else:
-        next_month = datetime(year, month + 1, 1, tzinfo=tzlocal())
+        next_month = datetime(year, month + 1, 1, tzinfo=KST)
 
     rows = InsuranceApplication.query.filter(
         InsuranceApplication.start_at.is_not(None),

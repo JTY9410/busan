@@ -98,7 +98,7 @@
         {% for r in rows %}
           <tr>
             <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].created_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
                 <input type="date" name="desired_start_date" class="form-input block w-full text-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
@@ -106,9 +106,9 @@
                 {{ r.desired_start_date }}
               {% endif %}
             </td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].start_at_str }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].end_at_str }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].approved_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
