@@ -181,9 +181,8 @@ def load_user(user_id):
 
 def init_db_and_assets():
     """데이터베이스 및 리소스 초기화"""
-    # Vercel 환경에서는 DB 파일 생성 건너뛰기 (메모리 DB 사용)
-    if not os.environ.get('VERCEL_ENV'):
-        db.create_all()
+    # Vercel에서도 in-memory SQLite를 사용하므로 테이블 생성은 항상 수행
+    db.create_all()
     ensure_logo()
 
     # 스키마 보정: role 컬럼이 없으면 추가
