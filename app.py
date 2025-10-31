@@ -138,9 +138,11 @@ class InsuranceApplication(db.Model):
 
     def recompute_status(self) -> None:
         now = datetime.now(tzlocal())
+        approved_at_local = _ensure_aware(self.approved_at)
+        end_at_local = _ensure_aware(self.end_at)
         # After approval + 2 hours -> 가입
         if self.status in ('신청', '조합승인'):
-            if self.approved_at and now >= self.approved_at + timedelta(hours=2):
+            if approved_at_local and now >= approved_at_local + timedelta(hours=2):
                 self.status = '가입'
                 if not self.start_at:
                     # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
@@ -148,7 +150,7 @@ class InsuranceApplication(db.Model):
                     self.start_at = start_date
                     self.end_at = start_date + timedelta(days=30)
         # 종료일 경과 -> 종료
-        if self.end_at and now >= self.end_at:
+        if end_at_local and now >= end_at_local:
             self.status = '종료'
 
 
