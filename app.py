@@ -104,6 +104,19 @@ def to_local_datetime(dt):
     except Exception:
         return ''
 
+# Add another filter for safe datetime display
+@app.template_filter('safe_datetime')
+def safe_datetime(dt):
+    """Safely format datetime for display"""
+    if not dt:
+        return ''
+    try:
+        if hasattr(dt, 'strftime'):
+            return dt.strftime('%Y-%m-%d %H:%M')
+        return str(dt)
+    except Exception:
+        return ''
+
 
 def _ensure_aware(dt):
     if not dt:
