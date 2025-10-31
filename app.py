@@ -901,10 +901,14 @@ def admin_invoice():
     company = request.args.get('company', '')
     representative = request.args.get('representative', '')
     business_number = request.args.get('business_number', '')
-    year = int(request.args.get('year'))
-    month = int(request.args.get('month'))
-    count = int(request.args.get('count'))
-    amount = int(request.args.get('amount'))
+    try:
+        year = int(request.args.get('year'))
+        month = int(request.args.get('month'))
+        count = int(request.args.get('count'))
+        amount = int(request.args.get('amount'))
+    except Exception:
+        flash('요청 파라미터가 올바르지 않습니다.', 'danger')
+        return redirect(url_for('admin_settlement'))
     return render_template('invoice.html',
                            company=company,
                            representative=representative,
@@ -957,6 +961,18 @@ def admin_invoice_batch():
             'amount': amount,
         })
     return render_template('invoice_batch.html', invoices=invoices)
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    # Log full stack trace for debugging while showing a friendly message to users
+    app.logger.exception("Unhandled exception")
+    try:
+        flash('서버 처리 중 오류가 발생했습니다.', 'danger')
+        return redirect(url_for('dashboard'))
+    except Exception:
+        # Fallback minimal response if flashing/redirecting fails (e.g., outside request context)
+        return ("", 500)
 
 
 if __name__ == '__main__':
