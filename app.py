@@ -911,7 +911,47 @@ def admin_insurance():
         r.recompute_status()
     db.session.commit()
 
-    return render_template('admin/insurance.html', rows=rows, edit_id=edit_id, tzlocal=tzlocal)
+    # Build view models with pre-formatted strings to avoid tzlocal usage in templates
+    def fmt_display(dt):
+        if not dt:
+            return ''
+        try:
+            return dt.strftime('%Y-%m-%d %H:%M')
+        except Exception:
+            return ''
+
+    def fmt_input(dt):
+        if not dt:
+            return ''
+        try:
+            local_dt = dt.astimezone(tzlocal())
+            return local_dt.strftime('%Y-%m-%dT%H:%M')
+        except Exception:
+            return ''
+
+    items = []
+    for r in rows:
+        items.append({
+            'id': r.id,
+            'created_by_company': (r.created_by_member.company_name if r.created_by_member else ''),
+            'created_at_str': fmt_display(r.created_at),
+            'desired_start_date': r.desired_start_date,
+            'start_at_str': fmt_display(r.start_at),
+            'end_at_str': fmt_display(r.end_at),
+            'approved_at_str': fmt_display(r.approved_at),
+            'start_at_input': fmt_input(r.start_at),
+            'end_at_input': fmt_input(r.end_at),
+            'insured_code': r.insured_code,
+            'contractor_code': r.contractor_code,
+            'car_plate': r.car_plate,
+            'vin': r.vin,
+            'car_name': r.car_name,
+            'car_registered_at': r.car_registered_at,
+            'approved_at': r.approved_at,
+            'memo': r.memo or '',
+        })
+
+    return render_template('admin/insurance.html', rows=rows, items=items, edit_id=edit_id)
 
 
 @app.route('/admin/insurance/download')

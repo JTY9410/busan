@@ -70,11 +70,11 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        {% for r in rows %}
+        {% for r, vm in zip(rows, items) %}
           <tr>
             <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_by_member.company_name if r.created_by_member else '' }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_at | safe_datetime }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ vm.created_by_company }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ vm.created_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
                 <input type="date" name="desired_start_date" class="form-input block w-full text-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
@@ -84,19 +84,19 @@
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ r.start_at | to_local_datetime }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ vm.start_at_input }}" form="edit_form_{{ r.id }}">
               {% else %}
-                {{ r.start_at | safe_datetime }}
+                {{ vm.start_at_str }}
               {% endif %}
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ r.end_at | to_local_datetime }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ vm.end_at_input }}" form="edit_form_{{ r.id }}">
               {% else %}
-                {{ r.end_at | safe_datetime }}
+                {{ vm.end_at_str }}
               {% endif %}
             </td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.approved_at | safe_datetime }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ vm.approved_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
