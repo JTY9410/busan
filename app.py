@@ -34,7 +34,13 @@ def create_app():
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
     # Vercel 환경에서는 SQLite를 메모리에서 사용하거나 다른 DB로 전환
     if os.environ.get('VERCEL_ENV'):
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:' # In-memory DB for Vercel
+        # 공유 메모리 SQLite (연결 간 공유) + 동일 스레드 제한 해제
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///file:vercel_memdb?mode=memory&cache=shared&uri=true'
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'check_same_thread': False
+            }
+        }
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
