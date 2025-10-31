@@ -43,6 +43,18 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 
+def _ensure_aware(dt):
+    if not dt:
+        return None
+    try:
+        # tz-naive if no tzinfo or utcoffset is None
+        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+            return dt.replace(tzinfo=tzlocal())
+        return dt
+    except Exception:
+        return dt
+
+
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사"""
     os.makedirs(STATIC_DIR, exist_ok=True)
@@ -118,11 +130,11 @@ class InsuranceApplication(db.Model):
         CheckConstraint("status IN ('신청','조합승인','가입','종료')", name='ck_ins_app_status'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(tzlocal()))  # 신청시간
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(tzlocal()))  # 신청시간 (timezone-aware)
     desired_start_date = db.Column(db.Date, nullable=False)  # 가입희망일자
-    start_at = db.Column(db.DateTime)  # 가입시간
-    end_at = db.Column(db.DateTime)  # 종료시간
-    approved_at = db.Column(db.DateTime)  # 조합승인시간
+    start_at = db.Column(db.DateTime(timezone=True))  # 가입시간 (timezone-aware)
+    end_at = db.Column(db.DateTime(timezone=True))  # 종료시간 (timezone-aware)
+    approved_at = db.Column(db.DateTime(timezone=True))  # 조합승인시간 (timezone-aware)
     insured_code = db.Column(db.String(64))  # 피보험자코드 = 사업자번호
     contractor_code = db.Column(db.String(64), default='부산자동차매매사업자조합')  # 계약자코드
     car_plate = db.Column(db.String(64))  # 한글차량번호
@@ -144,7 +156,7 @@ class InsuranceApplication(db.Model):
         if self.status in ('신청', '조합승인'):
             if approved_at_local and now >= approved_at_local + timedelta(hours=2):
                 self.status = '가입'
-                if not self.start_at:
+                if not self.start_at: # 이미 start_at이 설정되어 있지 않은 경우에만 자동 설정
                     # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
                     start_date = datetime.combine(self.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
                     self.start_at = start_date
@@ -360,6 +372,22 @@ def parse_date(value: str):
         return None
     try:
         return datetime.strptime(value, '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+
+def parse_datetime(value: str):
+    if not value:
+        return None
+    try:
+        dt = datetime.strptime(value, '%Y-%m-%d %H:%M')
+        return _ensure_aware(dt)
+    except ValueError:
+        try:
+            dt = datetime.strptime(value, '%Y-%m-%d')
+            return _ensure_aware(dt)
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -674,6 +702,11 @@ def admin_insurance():
             for r in rows:
                 r.approved_at = now
                 r.status = '조합승인'
+                # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
+                if not r.start_at:
+                    start_date_aware = datetime.combine(r.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
+                    r.start_at = start_date_aware
+                    r.end_at = start_date_aware + timedelta(days=30)
             db.session.commit()
             flash('일괄 승인되었습니다.', 'success')
         else:
@@ -685,6 +718,11 @@ def admin_insurance():
                 if action == 'approve':
                     row.approved_at = datetime.now(tzlocal())
                     row.status = '조합승인'
+                    # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
+                    if not row.start_at:
+                        start_date_aware = datetime.combine(row.desired_start_date, datetime.min.time(), tzinfo=tzlocal())
+                        row.start_at = start_date_aware
+                        row.end_at = start_date_aware + timedelta(days=30)
                     db.session.commit()
                     flash('승인되었습니다.', 'success')
                 elif action == 'delete':
@@ -702,6 +740,8 @@ def admin_insurance():
                     row.vin = request.form.get('vin', '').strip()
                     row.car_name = request.form.get('car_name', '').strip()
                     row.car_registered_at = parse_date(request.form.get('car_registered_at'))
+                    row.start_at = parse_datetime(request.form.get('start_at')) # 가입시간 수정 추가
+                    row.end_at = parse_datetime(request.form.get('end_at'))   # 종료시간 수정 추가
                     row.memo = request.form.get('memo', '').strip()
                     db.session.commit()
                     flash('저장되었습니다.', 'success')

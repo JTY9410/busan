@@ -81,8 +81,20 @@
                 {{ r.desired_start_date }}
               {% endif %}
             </td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
+              {% if edit_id == r.id|string %}
+                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ r.start_at.strftime('%Y-%m-%dT%H:%M') if r.start_at else '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 whitespace-nowrap">
+              {% if edit_id == r.id|string %}
+                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ r.end_at.strftime('%Y-%m-%dT%H:%M') if r.end_at else '' }}" form="edit_form_{{ r.id }}">
+              {% else %}
+                {{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}
+              {% endif %}
+            </td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
