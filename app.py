@@ -5,6 +5,7 @@ from dateutil.tz import tzlocal, gettz
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
+from sqlalchemy.pool import NullPool
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
@@ -69,7 +70,7 @@ def create_app():
             # External database (PostgreSQL, MySQL, etc.)
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                'poolclass': 'NullPool',  # Serverless-friendly
+                'poolclass': NullPool,  # Serverless-friendly
                 'pool_pre_ping': True,
                 'connect_args': {
                     'connect_timeout': 10,
@@ -80,7 +81,7 @@ def create_app():
             tmp_db_path = os.path.join(DATA_DIR, 'busan.db')
             app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{tmp_db_path}'
             app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                'poolclass': 'NullPool',  # Serverless-friendly
+                'poolclass': NullPool,  # Serverless-friendly
                 'connect_args': {
                     'check_same_thread': False,
                     'timeout': 20,
