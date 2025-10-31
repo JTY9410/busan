@@ -251,6 +251,14 @@ with app.app_context():
             pass
 
 
+@app.context_processor
+def inject_jinja_globals():
+    # Make tzlocal available in Jinja templates
+    return {
+        'tzlocal': tzlocal,
+    }
+
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
