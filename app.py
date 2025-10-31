@@ -52,6 +52,20 @@ app = create_app()
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+# Ensure tzlocal is available in Jinja templates
+app.jinja_env.globals['tzlocal'] = tzlocal
+
+# Add custom Jinja filter for datetime formatting
+@app.template_filter('to_local_datetime')
+def to_local_datetime(dt):
+    """Convert datetime to local timezone and format for datetime-local input"""
+    if not dt:
+        return ''
+    try:
+        local_dt = dt.astimezone(tzlocal())
+        return local_dt.strftime('%Y-%m-%dT%H:%M')
+    except Exception:
+        return ''
 
 
 def _ensure_aware(dt):
@@ -809,7 +823,7 @@ def admin_insurance():
         r.recompute_status()
     db.session.commit()
 
-    return render_template('admin/insurance.html', rows=rows, edit_id=edit_id)
+    return render_template('admin/insurance.html', rows=rows, edit_id=edit_id, tzlocal=tzlocal)
 
 
 @app.route('/admin/insurance/download')

@@ -83,14 +83,14 @@
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ (r.start_at.astimezone(tzlocal()).strftime('%Y-%m-%dT%H:%M')) if r.start_at else '' }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ r.start_at | to_local_datetime }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}
               {% endif %}
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ (r.end_at.astimezone(tzlocal()).strftime('%Y-%m-%dT%H:%M')) if r.end_at else '' }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ r.end_at | to_local_datetime }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}
               {% endif %}
