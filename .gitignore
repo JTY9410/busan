@@ -55,3 +55,4 @@ static/
 *.bak
 *.tmp
 
+.vercel

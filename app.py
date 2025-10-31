@@ -31,7 +31,11 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 def create_app():
     app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
+    # Vercel 환경에서는 SQLite를 메모리에서 사용하거나 다른 DB로 전환
+    if os.environ.get('VERCEL_ENV'):
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:' # In-memory DB for Vercel
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     return app
@@ -57,6 +61,9 @@ def _ensure_aware(dt):
 
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사"""
+    if os.environ.get('VERCEL_ENV'):
+        # Vercel 환경에서는 파일 시스템에 쓸 수 없으므로 이 작업 건너뛰기
+        return
     os.makedirs(STATIC_DIR, exist_ok=True)
     dst = os.path.join(STATIC_DIR, 'logo.png')
     if os.path.exists(dst):
@@ -173,7 +180,9 @@ def load_user(user_id):
 
 def init_db_and_assets():
     """데이터베이스 및 리소스 초기화"""
-    db.create_all()
+    # Vercel 환경에서는 DB 파일 생성 건너뛰기 (메모리 DB 사용)
+    if not os.environ.get('VERCEL_ENV'):
+        db.create_all()
     ensure_logo()
 
     # 스키마 보정: role 컬럼이 없으면 추가
@@ -182,8 +191,9 @@ def init_db_and_assets():
         res = db.session.execute(text("PRAGMA table_info(member)"))
         cols = [r[1] for r in res.fetchall()]
         if 'role' not in cols:
-            db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
-            db.session.commit()
+            if not os.environ.get('VERCEL_ENV'): # Vercel 환경이 아니면 스키마 변경
+                db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
+                db.session.commit()
     except Exception:
         pass
     
@@ -287,21 +297,18 @@ def register():
             return render_template('auth/register.html')
 
         # 파일 업로드 처리
-        registration_cert_path = None
-        if 'registration_cert' in request.files:
+        registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
+        if not os.environ.get('VERCEL_ENV') and 'registration_cert' in request.files:
             file = request.files['registration_cert']
             if file and file.filename:
-                # 파일 확장자 확인
                 allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
                 file_ext = os.path.splitext(file.filename)[1].lower()
                 if file_ext in allowed_extensions:
-                    # 파일명: 사업자번호_타임스탬프.확장자
                     timestamp = datetime.now(tzlocal()).strftime('%Y%m%d_%H%M%S')
                     filename = f"{business_number}_{timestamp}{file_ext}"
                     filepath = os.path.join(UPLOAD_DIR, filename)
                     file.save(filepath)
                     registration_cert_path = os.path.join('uploads', filename)
-
         member = Member(
             username=username,
             company_name=company_name,
@@ -334,6 +341,9 @@ def dashboard():
 @login_required
 def uploaded_file(filename):
     """업로드된 파일 제공"""
+    if os.environ.get('VERCEL_ENV'):
+        flash('Vercel 환경에서는 파일 제공이 제한됩니다.', 'warning')
+        return redirect(url_for('dashboard'))
     return send_file(os.path.join(UPLOAD_DIR, filename))
 
 
@@ -508,6 +518,9 @@ def insurance_template_download():
 @app.route('/insurance/upload', methods=['POST'])
 @login_required
 def insurance_upload():
+    if os.environ.get('VERCEL_ENV'):
+        flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
+        return redirect(url_for('insurance'))
     file = request.files.get('file')
     if not file:
         flash('파일을 선택하세요.', 'warning')
@@ -641,6 +654,9 @@ def admin_members():
 @login_required
 @admin_required
 def admin_members_upload():
+    if os.environ.get('VERCEL_ENV'):
+        flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
+        return redirect(url_for('admin_members'))
     file = request.files.get('file')
     if not file:
         flash('엑셀 파일을 선택하세요.', 'warning')
