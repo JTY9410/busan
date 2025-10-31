@@ -70,11 +70,11 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        {% for r, vm in zip(rows, items) %}
+        {% for r in rows %}
           <tr>
             <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ vm.created_by_company }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ vm.created_at_str }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].created_by_company }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].created_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
                 <input type="date" name="desired_start_date" class="form-input block w-full text-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
@@ -84,19 +84,19 @@
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ vm.start_at_input }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="start_at" class="form-input block w-full text-sm" value="{{ items[loop.index0].start_at_input }}" form="edit_form_{{ r.id }}">
               {% else %}
-                {{ vm.start_at_str }}
+                {{ items[loop.index0].start_at_str }}
               {% endif %}
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ vm.end_at_input }}" form="edit_form_{{ r.id }}">
+                <input type="datetime-local" name="end_at" class="form-input block w-full text-sm" value="{{ items[loop.index0].end_at_input }}" form="edit_form_{{ r.id }}">
               {% else %}
-                {{ vm.end_at_str }}
+                {{ items[loop.index0].end_at_str }}
               {% endif %}
             </td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ vm.approved_at_str }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ items[loop.index0].approved_at_str }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
@@ -152,19 +152,18 @@
                   <a href="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">취소</a>
                 </form>
               {% else %}
-                {% if not r.approved_at %}
-                  <button type="submit" form="action_form_{{ r.id }}" name="action" value="approve" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm">승인</button>
-                {% endif %}
+                <form method="post" class="inline-block mr-2" action="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="approve">
+                  <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm" {% if r.approved_at %}disabled{% endif %}>승인</button>
+                </form>
                 <a href="{{ url_for('admin_insurance', edit_id=r.id, req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">수정</a>
                 <form method="post" class="inline-block ml-2" onsubmit="return confirm('삭제하시겠습니까?')">
                   <input type="hidden" name="row_id" value="{{ r.id }}">
                   <input type="hidden" name="action" value="delete">
                   <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">삭제</button>
                 </form>
-                {# Hidden form for approve action #}
-                <form id="action_form_{{ r.id }}" method="post" class="hidden">
-                  <input type="hidden" name="row_id" value="{{ r.id }}">
-                </form>
+                {# Removed hidden approve form; using explicit form above for reliability #}
               {% endif %}
             </td>
           </tr>
