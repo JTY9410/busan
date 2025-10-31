@@ -1,95 +1,94 @@
 {% extends 'base.html' %}
 {% block title %}회원가입승인{% endblock %}
 {% block content %}
-<div class="mb-3">
-  <a href="{{ url_for('admin_home') }}" class="btn btn-outline-primary">관리자페이지로</a>
+<div class="mb-4">
+  <a href="{{ url_for('admin_home') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>관리자페이지로</a>
 </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="scroll-x">
-      <table class="table table-bordered table-sm sticky-header" style="min-width:1400px">
-        <thead>
-          <tr>
-            <th>순</th>
-            <th>상사명</th>
-            <th>주소</th>
-            <th>사업자번호</th>
-            <th>법인번호</th>
-            <th>대표자</th>
-            <th>연락처</th>
-            <th>휴대폰</th>
-            <th>이메일</th>
-            <th>승인</th>
-            <th>비고</th>
-            <th>작업</th>
-          </tr>
-        </thead>
-        <tbody>
+<div class="bg-white shadow-md rounded-lg p-6">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 sticky-header table-auto">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">순</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상사명</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업자번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">법인번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대표자</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연락처</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">휴대폰</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">승인</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
         {% for m in members %}
           <tr>
-            <td>{{ loop.index }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="company_name" class="form-control form-control-sm" value="{{ m.company_name }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="company_name" class="form-input block w-full text-sm" value="{{ m.company_name }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.company_name }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="address" class="form-control form-control-sm" value="{{ m.address or '' }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="address" class="form-input block w-full text-sm" value="{{ m.address or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.address or '' }}
               {% endif %}
             </td>
-            <td>{{ m.business_number }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ m.business_number }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="corporation_number" class="form-control form-control-sm" value="{{ m.corporation_number or '' }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="corporation_number" class="form-input block w-full text-sm" value="{{ m.corporation_number or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.corporation_number or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="representative" class="form-control form-control-sm" value="{{ m.representative or '' }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="representative" class="form-input block w-full text-sm" value="{{ m.representative or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.representative or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="phone" class="form-control form-control-sm" value="{{ m.phone or '' }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="phone" class="form-input block w-full text-sm" value="{{ m.phone or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.phone or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="mobile" class="form-control form-control-sm" value="{{ m.mobile or '' }}" form="edit_form_{{ m.id }}">
+                <input type="text" name="mobile" class="form-input block w-full text-sm" value="{{ m.mobile or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.mobile or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="email" name="email" class="form-control form-control-sm" value="{{ m.email or '' }}" form="edit_form_{{ m.id }}">
+                <input type="email" name="email" class="form-input block w-full text-sm" value="{{ m.email or '' }}" form="edit_form_{{ m.id }}">
               {% else %}
                 {{ m.email or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <select name="approval_status" class="form-select form-select-sm" form="edit_form_{{ m.id }}">
+                <select name="approval_status" class="form-select block w-full text-sm" form="edit_form_{{ m.id }}">
                   <option value="신청" {% if m.approval_status == '신청' %}selected{% endif %}>신청</option>
                   <option value="승인중" {% if m.approval_status == '승인중' %}selected{% endif %}>승인중</option>
                   <option value="승인" {% if m.approval_status == '승인' %}selected{% endif %}>승인</option>
                 </select>
               {% else %}
-                <form method="post" class="d-inline">
+                <form method="post" class="inline-block">
                   <input type="hidden" name="member_id" value="{{ m.id }}">
-                  <select name="approval_status" class="form-select form-select-sm" onchange="this.form.submit()">
+                  <select name="approval_status" class="form-select block w-full text-sm" onchange="this.form.submit()">
                     <option value="신청" {% if m.approval_status == '신청' %}selected{% endif %}>신청</option>
                     <option value="승인중" {% if m.approval_status == '승인중' %}selected{% endif %}>승인중</option>
                     <option value="승인" {% if m.approval_status == '승인' %}selected{% endif %}>승인</option>
@@ -98,35 +97,34 @@
                 </form>
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <input type="text" name="memo" class="form-control form-control-sm" value="" form="edit_form_{{ m.id }}" placeholder="비고 입력">
+                <input type="text" name="memo" class="form-input block w-full text-sm" value="" form="edit_form_{{ m.id }}" placeholder="비고 입력">
               {% else %}
-                <input type="text" name="memo" class="form-control form-control-sm" value="" placeholder="비고 입력" readonly style="background-color: #f8f9fa;">
+                <input type="text" name="memo" class="form-input block w-full text-sm" value="" placeholder="비고 입력" readonly class="bg-gray-100 cursor-not-allowed">
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == m.id|string %}
-                <form id="edit_form_{{ m.id }}" method="post" class="d-inline">
+                <form id="edit_form_{{ m.id }}" method="post" class="inline-flex space-x-2">
                   <input type="hidden" name="member_id" value="{{ m.id }}">
                   <input type="hidden" name="action" value="save">
-                  <button class="btn btn-sm btn-success" type="submit">저장</button>
-                  <a href="{{ url_for('admin_members') }}" class="btn btn-sm btn-secondary">취소</a>
+                  <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">저장</button>
+                  <a href="{{ url_for('admin_members') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">취소</a>
                 </form>
               {% else %}
-                <a href="{{ url_for('admin_members', edit_id=m.id) }}" class="btn btn-sm btn-primary">수정</a>
-                <form method="post" class="d-inline" onsubmit="return confirm('삭제하시겠습니까?')">
+                <a href="{{ url_for('admin_members', edit_id=m.id) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">수정</a>
+                <form method="post" class="inline-block ml-2" onsubmit="return confirm('삭제하시겠습니까?')">
                   <input type="hidden" name="member_id" value="{{ m.id }}">
                   <input type="hidden" name="action" value="delete">
-                  <button class="btn btn-sm btn-danger" type="submit">삭제</button>
+                  <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">삭제</button>
                 </form>
               {% endif %}
             </td>
           </tr>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

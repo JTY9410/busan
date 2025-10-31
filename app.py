@@ -17,7 +17,10 @@ DB_PATH = os.path.join(DATA_DIR, 'busan.db')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
-LOGO_SRC = os.path.join(BASE_DIR, 'static', 'logo.png')
+
+LOGO_SRC_FILENAME = 'logo.png'
+# 컨테이너 내부에서 접근 가능한 경로로 변경
+LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
 
 # Ensure directories exist
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -45,12 +48,16 @@ def ensure_logo():
     os.makedirs(STATIC_DIR, exist_ok=True)
     dst = os.path.join(STATIC_DIR, 'logo.png')
     if os.path.exists(dst):
-        return
+        try:
+            if os.path.getsize(dst) > 0:
+                return
+        except Exception:
+            pass
     
     # 원본 로고 파일 경로들 시도
     original_logo_paths = [
-        os.path.join(BASE_DIR, '스크린샷 2025-10-31 오후 4.40.25.png'),
-        '/Users/USER/dev/busan/스크린샷 2025-10-31 오후 4.40.25.png',
+        LOGO_SOURCE_PATH_IN_CONTAINER,  # 컨테이너 내부: /app/logo.png (repo 동봉)
+        '/Users/USER/dev/busan/logo.png',  # 호스트 절대 경로
     ]
     
     for src in original_logo_paths:
@@ -174,16 +181,15 @@ def init_db_and_assets():
 with app.app_context():
     init_db_and_assets()
 
-
-# Enable SQLite foreign keys on each connection
-@event.listens_for(db.engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    try:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-    except Exception:
-        pass
+    # Enable SQLite foreign keys on each connection
+    @event.listens_for(db.engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+        except Exception:
+            pass
 
 
 @app.route('/')
@@ -292,6 +298,30 @@ def uploaded_file(filename):
 @login_required
 def terms():
     return render_template('terms.html')
+
+
+@app.route('/terms/guide.pdf')
+@login_required
+def terms_guide_pdf():
+    """상품안내 PDF를 브라우저에 표시 (inline)"""
+    try:
+        pdf_path = os.path.join(BASE_DIR, '@중고차매매업자자동차보험_상품안내_부산.pdf')
+        return send_file(pdf_path, mimetype='application/pdf')
+    except Exception:
+        flash('안내 문서를 불러올 수 없습니다.', 'danger')
+        return redirect(url_for('terms'))
+
+
+@app.route('/terms/policy/download')
+@login_required
+def terms_policy_download():
+    """약관 PDF 다운로드"""
+    try:
+        pdf_path = os.path.join(BASE_DIR, '중고차 매매업자 자동차보험 약관.pdf')
+        return send_file(pdf_path, as_attachment=True, download_name='중고차_매매업자_자동차보험_약관.pdf', mimetype='application/pdf')
+    except Exception:
+        flash('약관 파일을 다운로드할 수 없습니다.', 'danger')
+        return redirect(url_for('terms'))
 
 
 def parse_date(value: str):

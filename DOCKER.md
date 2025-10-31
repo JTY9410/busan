@@ -45,7 +45,7 @@ docker rm busan-insurance-app
 
 ## 접속
 
-브라우저에서 http://localhost:5000 접속
+브라우저에서 http://localhost:8000 접속
 
 ## 데이터 영구 저장
 

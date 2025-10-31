@@ -1,65 +1,61 @@
 {% extends 'base.html' %}
 {% block title %}정산{% endblock %}
 {% block content %}
-<div class="mb-3">
-  <a href="{{ url_for('admin_home') }}" class="btn btn-outline-primary">관리자페이지로</a>
+<div class="mb-4">
+  <a href="{{ url_for('admin_home') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>관리자페이지로</a>
 </div>
 
-<div class="card mb-3">
-  <div class="card-body">
-    <form class="row g-2" method="get">
-      <div class="col-md-2">
-        <label class="form-label">년도</label>
-        <input type="number" name="year" class="form-control" value="{{ year }}">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">월</label>
-        <input type="number" name="month" class="form-control" value="{{ month }}" min="1" max="12">
-      </div>
-      <div class="col-md-3 align-self-end">
-        <button class="btn btn-primary">정산</button>
-      </div>
-      <div class="col-md-5 align-self-end text-end">
-        <a class="btn btn-outline-secondary" href="{{ url_for('admin_invoice_batch', year=year, month=month) }}" target="_blank">청구서 일괄 저장(인쇄)</a>
-      </div>
-    </form>
-  </div>
+<div class="bg-white shadow-md rounded-lg p-6 mb-6">
+  <form class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end" method="get">
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">년도</label>
+      <input type="number" name="year" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ year }}">
+    </div>
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">월</label>
+      <input type="number" name="month" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ month }}" min="1" max="12">
+    </div>
+    <div>
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" type="submit"><i class="bi bi-calculator mr-2"></i>정산</button>
+    </div>
+    <div class="text-right">
+      <a class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200" href="{{ url_for('admin_invoice_batch', year=year, month=month) }}" target="_blank"><i class="bi bi-printer mr-2"></i>청구서 일괄 저장(인쇄)</a>
+    </div>
+  </form>
 </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="scroll-x">
-      <table class="table table-bordered table-sm sticky-header" style="min-width:900px">
-        <thead>
-          <tr>
-            <th>상사명</th>
-            <th>대표자</th>
-            <th>건수</th>
-            <th>금액</th>
-            <th>비고</th>
-            <th>작업</th>
-            <th>청구서</th>
-          </tr>
-        </thead>
-        <tbody>
+<div class="bg-white shadow-md rounded-lg p-6">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 sticky-header table-auto">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상사명</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대표자</th>
+          <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">건수</th>
+          <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">청구서</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
         {% for s in settlements %}
           <tr>
-            <td>{{ s.company }}</td>
-            <td>{{ s.representative }}</td>
-            <td>{{ s.count }}</td>
-            <td>{{ '{:,}'.format(s.amount) }}</td>
-            <td></td>
-            <td>
-              <a class="btn btn-sm btn-outline-primary" href="#">수정</a>
+            <td class="px-4 py-2 whitespace-nowrap">{{ s.company }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ s.representative }}</td>
+            <td class="px-4 py-2 whitespace-nowrap text-right">{{ s.count }}</td>
+            <td class="px-4 py-2 whitespace-nowrap text-right">{{ '{:,}'.format(s.amount) }}</td>
+            <td class="px-4 py-2 whitespace-nowrap"></td>
+            <td class="px-4 py-2 whitespace-nowrap">
+              <a class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" href="#">수정</a>
             </td>
-            <td>
-              <a class="btn btn-sm btn-success" target="_blank" href="{{ url_for('admin_invoice', company=s.company, representative=s.representative, business_number=s.business_number, count=s.count, amount=s.amount, year=year, month=month) }}">청구서</a>
+            <td class="px-4 py-2 whitespace-nowrap">
+              <a class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" target="_blank" href="{{ url_for('admin_invoice', company=s.company, representative=s.representative, business_number=s.business_number, count=s.count, amount=s.amount, year=year, month=month) }}"><i class="bi bi-receipt mr-2"></i>청구서</a>
             </td>
           </tr>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

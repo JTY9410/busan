@@ -1,168 +1,157 @@
 {% extends 'base.html' %}
 {% block title %}책임보험가입{% endblock %}
 {% block content %}
-<div class="mb-3">
-  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">대시보드로</a>
+<div class="mb-4">
+  <a href="{{ url_for('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>대시보드로</a>
 </div>
 
-<div class="row g-3 mb-4">
-  <div class="col-12 col-lg-6">
-    <div class="card">
-      <div class="card-body">
-        <h6 class="mb-3">검색</h6>
-        <form class="row g-2" method="get">
-          <div class="col-md-4">
-            <label class="form-label">시작일</label>
-            <input type="date" class="form-control" name="start_date" value="{{ request.args.get('start_date','') }}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">종료일</label>
-            <input type="date" class="form-control" name="end_date" value="{{ request.args.get('end_date','') }}">
-          </div>
-          <div class="col-md-4 align-self-end">
-            <button class="btn btn-primary w-100" type="submit">검색</button>
-          </div>
-        </form>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="bg-white shadow-md rounded-lg p-6">
+    <h6 class="text-xl font-semibold text-gray-800 mb-4">검색</h6>
+    <form class="grid grid-cols-1 md:grid-cols-3 gap-4" method="get">
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">시작일</label>
+        <input type="date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="start_date" value="{{ request.args.get('start_date','') }}">
       </div>
-    </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">종료일</label>
+        <input type="date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="end_date" value="{{ request.args.get('end_date','') }}">
+      </div>
+      <div class="flex items-end">
+        <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" type="submit">검색</button>
+      </div>
+    </form>
   </div>
-  <div class="col-12 col-lg-6">
-    <div class="card">
-      <div class="card-body">
-        <h6 class="mb-3">신규가입 / 엑셀</h6>
-        <form class="row g-2" method="post">
-          <div class="col-md-6">
-            <label class="form-label">가입희망일자</label>
-            <input type="date" name="desired_start_date" class="form-control" required>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">피보험자코드</label>
-            <input type="text" class="form-control" value="{{ current_user.business_number or '' }}" readonly>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">계약자코드</label>
-            <input type="text" class="form-control" value="부산자동차매매사업자조합" readonly>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">한글차량번호</label>
-            <input type="text" name="car_plate" class="form-control" required>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">차대번호</label>
-            <input type="text" name="vin" class="form-control">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">차량명</label>
-            <input type="text" name="car_name" class="form-control">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">차량등록일자</label>
-            <input type="date" name="car_registered_at" class="form-control">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">비고</label>
-            <input type="text" name="memo" class="form-control">
-          </div>
-          <div class="col-12">
-            <button class="btn btn-success" type="submit">신청</button>
-          </div>
-        </form>
-        <div class="mt-3">
-          <a class="btn btn-outline-secondary" href="{{ url_for('insurance_template_download') }}">엑셀업로드양식</a>
-        </div>
-        <form class="mt-2" action="{{ url_for('insurance_upload') }}" method="post" enctype="multipart/form-data">
-          <div class="input-group">
-            <input type="file" class="form-control" name="file" accept=".xlsx">
-            <button class="btn btn-outline-primary" type="submit">엑셀업로드</button>
-          </div>
-        </form>
+  <div class="bg-white shadow-md rounded-lg p-6">
+    <h6 class="text-xl font-semibold text-gray-800 mb-4">신규가입 / 엑셀</h6>
+    <form class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4" method="post">
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">가입희망일자</label>
+        <input type="date" name="desired_start_date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
       </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">피보험자코드</label>
+        <input type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed" value="{{ current_user.business_number or '' }}" readonly>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">계약자코드</label>
+        <input type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed" value="부산자동차매매사업자조합" readonly>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">한글차량번호</label>
+        <input type="text" name="car_plate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">차대번호</label>
+        <input type="text" name="vin" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">차량명</label>
+        <input type="text" name="car_name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">차량등록일자</label>
+        <input type="date" name="car_registered_at" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">비고</label>
+        <input type="text" name="memo" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+      </div>
+      <div class="col-span-full">
+        <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" type="submit">신청</button>
+      </div>
+    </form>
+    <div class="mb-2">
+      <a class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200" href="{{ url_for('insurance_template_download') }}"><i class="bi bi-cloud-arrow-down mr-2"></i>엑셀업로드양식</a>
     </div>
+    <form action="{{ url_for('insurance_upload') }}" method="post" enctype="multipart/form-data" class="flex items-center space-x-2">
+      <input type="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" name="file" accept=".xlsx">
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit"><i class="bi bi-cloud-arrow-up mr-2"></i>엑셀업로드</button>
+    </form>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="scroll-x">
-      <table class="table table-bordered table-sm align-middle sticky-header" style="min-width:1600px">
-        <thead>
-          <tr>
-            <th>순</th>
-            <th>신청시간</th>
-            <th>가입희망일자</th>
-            <th>가입시간</th>
-            <th>종료시간</th>
-            <th>조합승인시간</th>
-            <th>피보험자코드</th>
-            <th>계약자코드</th>
-            <th>한글차량번호</th>
-            <th>차대번호</th>
-            <th>차량명</th>
-            <th>차량등록일자</th>
-            <th>보험료</th>
-            <th>현재상태</th>
-            <th>비고</th>
-            <th>작업</th>
-          </tr>
-        </thead>
-        <tbody>
+<div class="bg-white shadow-md rounded-lg p-6">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 sticky-header table-auto">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">순</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입희망일자</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">종료시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">조합승인시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">피보험자코드</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">계약자코드</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">한글차량번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차대번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차량명</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차량등록일자</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">보험료</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">현재상태</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
         {% for r in rows %}
           <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="date" name="desired_start_date" class="form-control form-control-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
+                <input type="date" name="desired_start_date" class="form-input block w-full text-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.desired_start_date }}
               {% endif %}
             </td>
-            <td>{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
-            <td>{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
-            <td>{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
-            <td>{{ r.insured_code }}</td>
-            <td>{{ r.contractor_code }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="car_plate" class="form-control form-control-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="car_plate" class="form-input block w-full text-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_plate }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="vin" class="form-control form-control-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="vin" class="form-input block w-full text-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.vin or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="car_name" class="form-control form-control-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="car_name" class="form-input block w-full text-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_name or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="date" name="car_registered_at" class="form-control form-control-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
+                <input type="date" name="car_registered_at" class="form-input block w-full text-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_registered_at or '' }}
               {% endif %}
             </td>
-            <td>9,500</td>
-            <td>{{ r.status }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">9,500</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.status }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="memo" class="form-control form-control-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="memo" class="form-input block w-full text-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {% if not r.approved_at %}
-                  <form id="memo_form_{{ r.id }}" method="post" class="d-inline">
+                  <form id="memo_form_{{ r.id }}" method="post" class="inline-flex items-center space-x-2">
                     <input type="hidden" name="row_id" value="{{ r.id }}">
                     <input type="hidden" name="action" value="save">
-                    <div class="input-group input-group-sm">
-                      <input type="text" name="memo" class="form-control" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
-                      <button class="btn btn-outline-secondary" type="submit" title="저장">✓</button>
+                    <div class="relative flex items-center w-full">
+                      <input type="text" name="memo" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
+                      <button class="absolute right-0 top-0 mt-1 mr-1 p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:shadow-outline" type="submit" title="저장"><i class="bi bi-check-lg"></i></button>
                     </div>
                   </form>
                 {% else %}
@@ -170,32 +159,31 @@
                 {% endif %}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if not r.approved_at %}
                 {% if edit_id == r.id|string %}
-                  <form id="edit_form_{{ r.id }}" method="post" class="d-inline">
+                  <form id="edit_form_{{ r.id }}" method="post" class="inline-flex space-x-2">
                     <input type="hidden" name="row_id" value="{{ r.id }}">
                     <input type="hidden" name="action" value="save">
-                    <button class="btn btn-sm btn-success" type="submit">저장</button>
-                    <a href="{{ url_for('insurance', start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-sm btn-secondary">취소</a>
+                    <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">저장</button>
+                    <a href="{{ url_for('insurance', start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">취소</a>
                   </form>
                 {% else %}
-                  <a href="{{ url_for('insurance', edit_id=r.id, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-sm btn-primary">수정</a>
-                  <form method="post" class="d-inline" onsubmit="return confirm('삭제하시겠습니까?')">
+                  <a href="{{ url_for('insurance', edit_id=r.id, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">수정</a>
+                  <form method="post" class="inline-block ml-2" onsubmit="return confirm('삭제하시겠습니까?')">
                     <input type="hidden" name="row_id" value="{{ r.id }}">
                     <input type="hidden" name="action" value="delete">
-                    <button class="btn btn-sm btn-danger" type="submit">삭제</button>
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">삭제</button>
                   </form>
                 {% endif %}
               {% else %}
-                <span class="text-muted">-</span>
+                <span class="text-gray-500">-</span>
               {% endif %}
             </td>
           </tr>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

@@ -5,7 +5,7 @@ services:
     build: .
     container_name: busan-insurance-app
     ports:
-      - "5000:5000"
+      - "8000:5000"
     volumes:
       - ./data:/app/data
       - ./static:/app/static

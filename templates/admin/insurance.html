@@ -1,160 +1,159 @@
 {% extends 'base.html' %}
 {% block title %}책임보험 승인{% endblock %}
 {% block content %}
-<div class="mb-3 d-flex gap-2 flex-wrap">
-  <a href="{{ url_for('admin_home') }}" class="btn btn-outline-primary">관리자페이지로</a>
-  <a href="{{ url_for('admin_insurance_download') }}" class="btn btn-outline-secondary">데이터다운로드</a>
+<div class="mb-4 flex gap-2 flex-wrap">
+  <a href="{{ url_for('admin_home') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>관리자페이지로</a>
+  <a href="{{ url_for('admin_insurance_download') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200"><i class="bi bi-cloud-arrow-down mr-2"></i>데이터다운로드</a>
 </div>
 
-<div class="card mb-3">
-  <div class="card-body">
-    <form class="row g-2" method="get">
-      <div class="col-md-3">
-        <label class="form-label">신청 시작일</label>
-        <input type="date" name="req_start" class="form-control" value="{{ request.args.get('req_start','') }}">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">신청 종료일</label>
-        <input type="date" name="req_end" class="form-control" value="{{ request.args.get('req_end','') }}">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">승인여부</label>
-        <select name="approved" class="form-select">
-          {% set a = request.args.get('approved','전체') %}
-          <option value="전체" {% if a=='전체' %}selected{% endif %}>전체</option>
-          <option value="승인" {% if a=='승인' %}selected{% endif %}>승인</option>
-          <option value="미승인" {% if a=='미승인' %}selected{% endif %}>미승인</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">승인 시작</label>
-        <input type="date" name="appr_start" class="form-control" value="{{ request.args.get('appr_start','') }}">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">승인 종료</label>
-        <input type="date" name="appr_end" class="form-control" value="{{ request.args.get('appr_end','') }}">
-      </div>
-      <div class="col-md-12">
-        <button class="btn btn-primary">검색</button>
-      </div>
-    </form>
-  </div>
+<div class="bg-white shadow-md rounded-lg p-6 mb-6">
+  <form class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4" method="get">
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">신청 시작일</label>
+      <input type="date" name="req_start" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ request.args.get('req_start','') }}">
+    </div>
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">신청 종료일</label>
+      <input type="date" name="req_end" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ request.args.get('req_end','') }}">
+    </div>
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">승인여부</label>
+      <select name="approved" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        {% set a = request.args.get('approved','전체') %}
+        <option value="전체" {% if a=='전체' %}selected{% endif %}>전체</option>
+        <option value="승인" {% if a=='승인' %}selected{% endif %}>승인</option>
+        <option value="미승인" {% if a=='미승인' %}selected{% endif %}>미승인</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">승인 시작</label>
+      <input type="date" name="appr_start" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ request.args.get('appr_start','') }}">
+    </div>
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2">승인 종료</label>
+      <input type="date" name="appr_end" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="{{ request.args.get('appr_end','') }}">
+    </div>
+    <div class="flex items-end col-span-full lg:col-span-1">
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" type="submit">검색</button>
+    </div>
+  </form>
 </div>
 
-<form method="post" class="mb-3">
+<form method="post" class="mb-4">
   <input type="hidden" name="bulk_approve" value="1">
-  <button class="btn btn-success" type="submit">일괄승인</button>
+  <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit"><i class="bi bi-check-all mr-2"></i>일괄승인</button>
 </form>
 
-<div class="card">
-  <div class="card-body">
-    <div class="scroll-x">
-      <table class="table table-bordered table-sm sticky-header" style="min-width:1400px">
-        <thead>
-          <tr>
-            <th>순</th>
-            <th>상사명</th>
-            <th>신청시간</th>
-            <th>가입희망일자</th>
-            <th>가입시간</th>
-            <th>종료시간</th>
-            <th>조합승인시간</th>
-            <th>피보험자코드</th>
-            <th>계약자코드</th>
-            <th>한글차량번호</th>
-            <th>차대번호</th>
-            <th>차량명</th>
-            <th>차량등록일자</th>
-            <th>보험료</th>
-            <th>조합승인</th>
-            <th>비고</th>
-            <th>작업</th>
-          </tr>
-        </thead>
-        <tbody>
+<div class="bg-white shadow-md rounded-lg p-6">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 sticky-header table-auto">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">순</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상사명</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입희망일자</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">종료시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">조합승인시간</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">피보험자코드</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">계약자코드</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">한글차량번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차대번호</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차량명</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차량등록일자</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">보험료</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">조합승인</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
         {% for r in rows %}
           <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ r.created_by_member.company_name if r.created_by_member else '' }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ loop.index }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_by_member.company_name if r.created_by_member else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="date" name="desired_start_date" class="form-control form-control-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
+                <input type="date" name="desired_start_date" class="form-input block w-full text-sm" value="{{ r.desired_start_date }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.desired_start_date }}
               {% endif %}
             </td>
-            <td>{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
-            <td>{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
-            <td>{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
-            <td>{{ r.insured_code }}</td>
-            <td>{{ r.contractor_code }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.insured_code }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.contractor_code }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="car_plate" class="form-control form-control-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="car_plate" class="form-input block w-full text-sm" value="{{ r.car_plate }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_plate }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="vin" class="form-control form-control-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="vin" class="form-input block w-full text-sm" value="{{ r.vin or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.vin or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="car_name" class="form-control form-control-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="car_name" class="form-input block w-full text-sm" value="{{ r.car_name or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_name or '' }}
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="date" name="car_registered_at" class="form-control form-control-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
+                <input type="date" name="car_registered_at" class="form-input block w-full text-sm" value="{{ r.car_registered_at or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
                 {{ r.car_registered_at or '' }}
               {% endif %}
             </td>
-            <td>9,500</td>
-            <td>{{ '승인' if r.approved_at else '미승인' }}</td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">9,500</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ '승인' if r.approved_at else '미승인' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <input type="text" name="memo" class="form-control form-control-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
+                <input type="text" name="memo" class="form-input block w-full text-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">
               {% else %}
-                <form method="post" class="d-inline">
+                <form method="post" class="inline-flex items-center space-x-2">
                   <input type="hidden" name="row_id" value="{{ r.id }}">
                   <input type="hidden" name="action" value="save_memo">
-                  <div class="input-group input-group-sm">
-                    <input type="text" name="memo" class="form-control" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
-                    <button class="btn btn-outline-secondary" type="submit" title="저장">✓</button>
+                  <div class="relative flex items-center w-full">
+                    <input type="text" name="memo" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm" value="{{ r.memo or '' }}" placeholder="비고 입력" onkeypress="if(event.key==='Enter'){this.form.submit();}">
+                    <button class="absolute right-0 top-0 mt-1 mr-1 p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:shadow-outline" type="submit" title="저장"><i class="bi bi-check-lg"></i></button>
                   </div>
                 </form>
               {% endif %}
             </td>
-            <td>
+            <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
-                <form id="edit_form_{{ r.id }}" method="post" class="d-inline">
+                <form id="edit_form_{{ r.id }}" method="post" class="inline-flex space-x-2">
                   <input type="hidden" name="row_id" value="{{ r.id }}">
                   <input type="hidden" name="action" value="save">
-                  <button class="btn btn-sm btn-success" type="submit">저장</button>
-                  <a href="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="btn btn-sm btn-secondary">취소</a>
+                  <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">저장</button>
+                  <a href="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">취소</a>
                 </form>
               {% else %}
-                <a href="{{ url_for('admin_insurance', edit_id=r.id, req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="btn btn-sm btn-primary">수정</a>
-                <form method="post" class="d-inline" onsubmit="return confirm('삭제하시겠습니까?')">
+                {% if not r.approved_at %}
+                  <button type="submit" form="action_form_{{ r.id }}" name="action" value="approve" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm">승인</button>
+                {% endif %}
+                <a href="{{ url_for('admin_insurance', edit_id=r.id, req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">수정</a>
+                <form method="post" class="inline-block ml-2" onsubmit="return confirm('삭제하시겠습니까?')">
                   <input type="hidden" name="row_id" value="{{ r.id }}">
                   <input type="hidden" name="action" value="delete">
-                  <button class="btn btn-sm btn-danger" type="submit">삭제</button>
+                  <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">삭제</button>
                 </form>
               {% endif %}
             </td>
           </tr>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

@@ -1,13 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}관리자페이지{% endblock %}
 {% block content %}
-<div class="mb-3">
-  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">대시보드로</a>
-  </div>
-<div class="d-flex gap-3 flex-wrap">
-  <a class="btn btn-dark" href="{{ url_for('admin_members') }}">회원가입승인</a>
-  <a class="btn btn-dark" href="{{ url_for('admin_insurance') }}">책임보험승인</a>
-  <a class="btn btn-dark" href="{{ url_for('admin_settlement') }}">정산</a>
+<div class="mb-4">
+  <a href="{{ url_for('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"><i class="bi bi-arrow-left mr-2"></i>대시보드로</a>
+</div>
+<h3 class="text-3xl font-bold text-gray-800 mb-6">관리자 페이지</h3>
+<div class="flex flex-wrap gap-4">
+  <a class="flex-1 min-w-[200px] bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 px-6 rounded-lg shadow-md flex items-center justify-center transition-colors duration-200 text-xl" href="{{ url_for('admin_members') }}">
+    <i class="bi bi-person-check mr-3 text-2xl"></i> 회원가입승인
+  </a>
+  <a class="flex-1 min-w-[200px] bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 px-6 rounded-lg shadow-md flex items-center justify-center transition-colors duration-200 text-xl" href="{{ url_for('admin_insurance') }}">
+    <i class="bi bi-journal-check mr-3 text-2xl"></i> 책임보험승인
+  </a>
+  <a class="flex-1 min-w-[200px] bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 px-6 rounded-lg shadow-md flex items-center justify-center transition-colors duration-200 text-xl" href="{{ url_for('admin_settlement') }}">
+    <i class="bi bi-calculator mr-3 text-2xl"></i> 정산
+  </a>
 </div>
 {% endblock %}
 

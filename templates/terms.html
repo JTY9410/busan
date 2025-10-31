@@ -1,15 +1,27 @@
 {% extends 'base.html' %}
 {% block title %}책임보험약관{% endblock %}
 {% block content %}
-<div class="mb-3">
-  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">대시보드로</a>
+<div class="mb-4">
+  <a href="{{ url_for('dashboard') }}" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200">대시보드로</a>
 </div>
-<h4 class="mb-3">책임보험약관</h4>
-<div class="card">
-  <div class="card-body">
-    <p>약관 내용은 추후 제공되는 공식 문구로 대체됩니다.</p>
+<h4 class="text-2xl font-bold text-gray-800 mb-4">책임보험 약관 및 안내</h4>
+<div class="bg-white shadow-md rounded-lg p-4">
+  <div class="w-full h-[80vh]">
+    <object data="{{ url_for('terms_guide_pdf') }}" type="application/pdf" class="w-full h-full rounded">
+      <div class="p-4 text-gray-700">
+        PDF를 표시할 수 없습니다. 아래 버튼을 클릭해 다운로드하시거나 PDF 뷰어로 열어주세요.
+        <div class="mt-3">
+          <a href="{{ url_for('terms_guide_pdf') }}" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">상품안내 PDF 열기</a>
+        </div>
+      </div>
+    </object>
   </div>
-  </div>
+</div>
+<div class="mt-4 flex justify-end">
+  <a href="{{ url_for('terms_policy_download') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200">
+    <i class="bi bi-download mr-2"></i> 약관 PDF 다운로드
+  </a>
+</div>
 {% endblock %}
 
 
