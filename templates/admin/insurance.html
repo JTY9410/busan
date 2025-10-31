@@ -152,11 +152,15 @@
                   <a href="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">취소</a>
                 </form>
               {% else %}
-                <form method="post" class="inline-block mr-2" action="{{ url_for('admin_insurance', req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}">
+                {% if not r.approved_at %}
+                <form method="post" class="inline-block mr-2" onsubmit="console.log('Submitting approve form for row {{ r.id }}');">
                   <input type="hidden" name="row_id" value="{{ r.id }}">
                   <input type="hidden" name="action" value="approve">
-                  <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm" {% if r.approved_at %}disabled{% endif %}>승인</button>
+                  <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm">승인</button>
                 </form>
+                {% else %}
+                <span class="text-green-600 font-semibold">승인완료</span>
+                {% endif %}
                 <a href="{{ url_for('admin_insurance', edit_id=r.id, req_start=request.args.get('req_start'), req_end=request.args.get('req_end'), approved=request.args.get('approved'), appr_start=request.args.get('appr_start'), appr_end=request.args.get('appr_end')) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">수정</a>
                 <form method="post" class="inline-block ml-2" onsubmit="return confirm('삭제하시겠습니까?')">
                   <input type="hidden" name="row_id" value="{{ r.id }}">

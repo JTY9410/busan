@@ -845,9 +845,21 @@ def admin_insurance():
             # 단건 수정/삭제
             action = request.form.get('action')
             row_id = request.form.get('row_id')
-            row = db.session.get(InsuranceApplication, int(row_id)) if row_id else None
+            print(f"DEBUG: action={action}, row_id={row_id}")  # 디버그 로그
+            
+            if row_id:
+                try:
+                    row = db.session.get(InsuranceApplication, int(row_id))
+                    print(f"DEBUG: Found row={row}")  # 디버그 로그
+                except Exception as e:
+                    print(f"DEBUG: Error finding row: {e}")
+                    row = None
+            else:
+                row = None
+                
             if row and action:
                 if action == 'approve':
+                    print(f"DEBUG: Approving row {row.id}")  # 디버그 로그
                     row.approved_at = datetime.now(tzlocal())
                     row.status = '조합승인'
                     # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
@@ -857,6 +869,7 @@ def admin_insurance():
                         row.end_at = start_date_aware + timedelta(days=30)
                     db.session.commit()
                     flash('승인되었습니다.', 'success')
+                    print(f"DEBUG: Approval completed for row {row.id}")  # 디버그 로그
                 elif action == 'delete':
                     db.session.delete(row)
                     db.session.commit()
