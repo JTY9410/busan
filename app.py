@@ -12,39 +12,76 @@ import pandas as pd
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+
+# Vercel-compatible paths: use /tmp for writable operations
+is_vercel = os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV')
+if is_vercel:
+    INSTANCE_DIR = os.environ.get('INSTANCE_PATH', '/tmp/instance')
+    DATA_DIR = os.environ.get('DATA_DIR', '/tmp/data')
+    UPLOAD_DIR = '/tmp/uploads'
+else:
+    INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
+    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+
 DB_PATH = os.path.join(DATA_DIR, 'busan.db')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
-UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
 
 LOGO_SRC_FILENAME = 'logo.png'
 # 컨테이너 내부에서 접근 가능한 경로로 변경
 LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
 
 # Ensure directories exist
-if not os.environ.get('VERCEL_ENV'):
+if is_vercel:
+    os.makedirs(INSTANCE_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+else:
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(STATIC_DIR, exist_ok=True)
 
 
 def create_app():
-    app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+    # Use instance_path for Vercel compatibility
+    instance_path = INSTANCE_DIR if is_vercel else None
+    app = Flask(__name__, 
+                template_folder=TEMPLATE_DIR, 
+                static_folder=STATIC_DIR,
+                instance_path=instance_path)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    # Vercel 환경에서는 SQLite를 메모리에서 사용하거나 다른 DB로 전환
-    if os.environ.get('VERCEL_ENV'):
-        # 공유 메모리 SQLite (연결 간 공유) + 동일 스레드 제한 해제
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///file:vercel_memdb?mode=memory&cache=shared&uri=true'
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'connect_args': {
-                'check_same_thread': False
+    
+    # Database configuration with Vercel support
+    if is_vercel:
+        # Check for external database first
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # External database (PostgreSQL, MySQL, etc.)
+            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+                'poolclass': 'NullPool',  # Serverless-friendly
+                'pool_pre_ping': True,
+                'connect_args': {
+                    'connect_timeout': 10,
+                }
             }
-        }
+        else:
+            # Fallback to /tmp SQLite for Vercel
+            tmp_db_path = os.path.join(DATA_DIR, 'busan.db')
+            app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{tmp_db_path}'
+            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+                'poolclass': 'NullPool',  # Serverless-friendly
+                'connect_args': {
+                    'check_same_thread': False,
+                    'timeout': 20,
+                }
+            }
     else:
+        # Local development
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
     return app
 
 
@@ -82,8 +119,8 @@ def _ensure_aware(dt):
 
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사"""
-    if os.environ.get('VERCEL_ENV'):
-        # Vercel 환경에서는 파일 시스템에 쓸 수 없으므로 이 작업 건너뛰기
+    if is_vercel:
+        # Vercel 환경에서는 static 디렉토리에 쓸 수 없으므로 이 작업 건너뛰기
         return
     os.makedirs(STATIC_DIR, exist_ok=True)
     dst = os.path.join(STATIC_DIR, 'logo.png')
@@ -205,15 +242,16 @@ def init_db_and_assets():
     db.create_all()
     ensure_logo()
 
-    # 스키마 보정: role 컬럼이 없으면 추가
+    # 스키마 보정: role 컬럼이 없으면 추가 (SQLite만)
     try:
         from sqlalchemy import text
-        res = db.session.execute(text("PRAGMA table_info(member)"))
-        cols = [r[1] for r in res.fetchall()]
-        if 'role' not in cols:
-            if not os.environ.get('VERCEL_ENV'): # Vercel 환경이 아니면 스키마 변경
-                db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
-                db.session.commit()
+        if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+            res = db.session.execute(text("PRAGMA table_info(member)"))
+            cols = [r[1] for r in res.fetchall()]
+            if 'role' not in cols:
+                if not is_vercel:  # Vercel 환경이 아니면 스키마 변경
+                    db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
+                    db.session.commit()
     except Exception:
         pass
     
@@ -326,7 +364,7 @@ def register():
 
         # 파일 업로드 처리
         registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
-        if not os.environ.get('VERCEL_ENV') and 'registration_cert' in request.files:
+        if not is_vercel and 'registration_cert' in request.files:
             file = request.files['registration_cert']
             if file and file.filename:
                 allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
@@ -369,7 +407,7 @@ def dashboard():
 @login_required
 def uploaded_file(filename):
     """업로드된 파일 제공"""
-    if os.environ.get('VERCEL_ENV'):
+    if is_vercel:
         flash('Vercel 환경에서는 파일 제공이 제한됩니다.', 'warning')
         return redirect(url_for('dashboard'))
     return send_file(os.path.join(UPLOAD_DIR, filename))
@@ -546,7 +584,7 @@ def insurance_template_download():
 @app.route('/insurance/upload', methods=['POST'])
 @login_required
 def insurance_upload():
-    if os.environ.get('VERCEL_ENV'):
+    if is_vercel:
         flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
         return redirect(url_for('insurance'))
     file = request.files.get('file')
@@ -682,7 +720,7 @@ def admin_members():
 @login_required
 @admin_required
 def admin_members_upload():
-    if os.environ.get('VERCEL_ENV'):
+    if is_vercel:
         flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
         return redirect(url_for('admin_members'))
     file = request.files.get('file')
