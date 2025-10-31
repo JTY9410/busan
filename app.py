@@ -9,7 +9,7 @@ from sqlalchemy.pool import NullPool
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
-import pandas as pd
+# Defer pandas import to avoid heavy loading at module import time
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -311,19 +311,30 @@ def admin_required(view):
     return wrapped
 
 
-# Flask 애플리케이션 시작 시 초기화
-with app.app_context():
-    init_db_and_assets()
+# Deferred initialization flag for serverless compatibility
+_initialized = False
 
-    # Enable SQLite foreign keys on each connection
-    @event.listens_for(db.engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        try:
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-        except Exception:
-            pass
+def ensure_initialized():
+    """Ensure database and assets are initialized (called on first request)"""
+    global _initialized
+    if not _initialized:
+        init_db_and_assets()
+        _initialized = True
+
+# Enable SQLite foreign keys on each connection
+@event.listens_for(db.engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    try:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+    except Exception:
+        pass
+
+# Initialize immediately for non-Vercel environments
+if not is_vercel:
+    with app.app_context():
+        ensure_initialized()
 
 
 @app.context_processor
@@ -336,6 +347,7 @@ def inject_jinja_globals():
 
 @app.route('/')
 def index():
+    ensure_initialized()  # Initialize on first request for Vercel
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
@@ -374,6 +386,7 @@ def debug_template_check():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    ensure_initialized()  # Initialize on first request for Vercel
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -638,6 +651,9 @@ def insurance():
 @app.route('/insurance/template')
 @login_required
 def insurance_template_download():
+    # Import pandas only when needed
+    import pandas as pd
+    
     # Create Excel template in-memory
     df = pd.DataFrame([
         {
@@ -672,6 +688,8 @@ def insurance_upload():
         flash('파일을 선택하세요.', 'warning')
         return redirect(url_for('insurance'))
     try:
+        # Import pandas only when needed
+        import pandas as pd
         df = pd.read_excel(file)
         required_cols = {
             '가입희망일자(YYYY-MM-DD)',
@@ -808,6 +826,8 @@ def admin_members_upload():
         flash('엑셀 파일을 선택하세요.', 'warning')
         return redirect(url_for('admin_members'))
     try:
+        # Import pandas only when needed
+        import pandas as pd
         df = pd.read_excel(file)
         created = 0
         skipped = 0
@@ -1014,6 +1034,9 @@ def admin_insurance():
 @login_required
 @admin_required
 def admin_insurance_download():
+    # Import pandas only when needed
+    import pandas as pd
+    
     # Export to Excel
     rows = InsuranceApplication.query.order_by(InsuranceApplication.created_at.desc()).all()
     data = []
