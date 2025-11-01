@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
 from sqlalchemy.pool import NullPool
+from sqlalchemy.engine import Engine
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
@@ -103,12 +104,17 @@ def create_app():
             # Fallback to /tmp SQLite for Vercel
             tmp_db_path = os.path.join(DATA_DIR, 'busan.db')
             app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{tmp_db_path}'
-            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                'poolclass': NullPool,  # Serverless-friendly
-                'connect_args': {
+            
+            # SQLite pragma를 위한 커스텀 커넥션 팩토리
+            def get_sqlite_connect_args():
+                return {
                     'check_same_thread': False,
                     'timeout': 20,
                 }
+            
+            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+                'poolclass': NullPool,  # Serverless-friendly
+                'connect_args': get_sqlite_connect_args(),
             }
     else:
         # Local development
@@ -344,16 +350,19 @@ def ensure_initialized():
         init_db_and_assets()
         _initialized = True
 
-# Enable SQLite foreign keys on each connection
-@event.listens_for(db.engine, "connect")
+# SQLite foreign keys 설정
+# Engine 클래스 레벨에서 이벤트 등록 (app context 불필요)
+@event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
+    """SQLite 연결 시 foreign keys 활성화 - 모든 SQLite 연결에 적용"""
     try:
-        # SQLite 전용 PRAGMA
-        if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        # SQLite 연결인지 확인
+        if hasattr(dbapi_connection, 'cursor'):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
     except Exception:
+        # SQLite가 아니거나 오류 발생 시 무시
         pass
 
 # Initialize immediately for non-Vercel environments
