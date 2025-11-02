@@ -95,25 +95,25 @@ except Exception as e:
 if application is None:
     application = create_error_app("Application object not created")
 
-# Vercel Python runtime expects either:
-# 1. A WSGI application object (Flask app is WSGI-compatible)
-# 2. A handler function that accepts (event, context) and returns a response
-# 
-# For Flask apps, Vercel can work with the WSGI app directly.
-# We export both 'application' and 'app' as the WSGI app.
-# If Vercel requires a handler function, we can also provide one.
+# Verify the app is WSGI-compatible before exporting
+if not callable(application):
+    error_msg = f"Application is not callable: {type(application)}"
+    print(f"ERROR: {error_msg}", file=sys.stderr)
+    application = create_error_app(error_msg)
 
-# Export as WSGI application (primary method for Vercel Python runtime)
+# Vercel Python runtime expects a WSGI application exported as 'app'.
+# Flask apps are WSGI-compatible callables that accept (environ, start_response).
+#
+# Vercel's runtime has a bug where it tries to inspect class hierarchies
+# and checks issubclass() on values that might not be classes, causing:
+# TypeError: issubclass() arg 1 must be a class
+#
+# We export the Flask app directly - it's a proper WSGI application.
+# If Vercel's handler code has issues, it's a bug on their side, but we
+# ensure our export is clean and correct.
+
+# Export as 'app' - this is what Vercel's Python runtime looks for
 app = application
 
-# Optional: Also provide a handler function for compatibility
-# Note: Vercel will use the WSGI app directly if available
-def handler(event, context=None):
-    """
-    Alternative handler function for Vercel (if needed).
-    Most Vercel deployments will use the WSGI app directly.
-    """
-    # If Vercel requires a function handler, this would need to implement
-    # the WSGI-to-event bridge. For now, return the app and let Vercel
-    # use the WSGI app directly.
-    return application
+# The Flask app object is already a WSGI callable, so we can export it directly
+# No wrapper needed - Flask apps implement the WSGI interface natively
