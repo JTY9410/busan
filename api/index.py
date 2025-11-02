@@ -33,13 +33,25 @@ def create_error_app(error_msg):
 
 # Try to import the app with detailed error reporting
 try:
+    # Set Vercel environment variables before import
+    import os
+    if not os.environ.get('VERCEL'):
+        os.environ['VERCEL'] = '1'
+    
     from app import app as application
     print("✓ Successfully imported Flask app")
+    
+    # Verify the app is callable (required by Vercel)
+    if not callable(application):
+        raise RuntimeError("Application is not callable")
+        
 except ImportError as e:
     error_msg = f"ImportError: {str(e)}\n\n{traceback.format_exc()}"
     print(f"✗ Import failed: {error_msg}")
+    sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     application = create_error_app(error_msg)
 except Exception as e:
     error_msg = f"Unexpected error: {str(e)}\n\n{traceback.format_exc()}"
     print(f"✗ Unexpected error: {error_msg}")
+    sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     application = create_error_app(error_msg)
