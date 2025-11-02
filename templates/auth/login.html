@@ -1,54 +1,74 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>로그인 - 책임보험</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { @apply bg-gray-50; }
-    .login-container { @apply min-h-screen flex items-center justify-center; }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <div class="container mx-auto px-4">
-      <div class="flex justify-center">
-        <div class="w-full max-w-md">
-          <div class="text-center mb-8">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="h-20 mx-auto mb-5">
-            <h4 class="text-2xl font-bold text-gray-800">책임보험가입신청</h4>
-          </div>
-          <div class="bg-white shadow-md rounded-lg p-6">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                <div class="mb-4">
-                  {% for category, message in messages %}
-                    <div class="p-3 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">{{ message }}</div>
-                  {% endfor %}
-                </div>
-              {% endif %}
-            {% endwith %}
-            <form method="post">
-              <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">아이디</label>
-                <input type="text" name="username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-              </div>
-              <div class="mb-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2">비밀번호</label>
-                <input type="password" name="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-              </div>
-              <div class="flex items-center justify-between">
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">로그인</button>
-                <a href="{{ url_for('register') }}" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">회원가입</a>
-              </div>
-            </form>
-          </div>
+{% extends 'base.html' %}
+{% block title %}로그인 - 책임보험{% endblock %}
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <!-- Logo and Title -->
+    <div class="text-center">
+      <div class="flex justify-center mb-6">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-2xl shadow-lg">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="h-16 w-16 object-contain">
         </div>
       </div>
+      <h2 class="text-4xl font-bold text-gray-900 mb-2">책임보험가입신청</h2>
+      <p class="text-gray-600">부산자동차매매사업자조합</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mb-6">
+            {% for category, message in messages %}
+              <div class="p-4 rounded-xl mb-3 border-l-4 {% if category == 'success' %}bg-green-50 text-green-800 border-green-500{% elif category == 'danger' %}bg-red-50 text-red-800 border-red-500{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border-yellow-500{% else %}bg-blue-50 text-blue-800 border-blue-500{% endif %}">
+                <div class="flex items-center">
+                  <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} mr-3"></i>
+                  <span class="font-medium">{{ message }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" class="space-y-6">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            <i class="bi bi-person mr-2 text-blue-500"></i>아이디
+          </label>
+          <input type="text" name="username" 
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-400" 
+                 placeholder="아이디를 입력하세요" required>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            <i class="bi bi-lock mr-2 text-blue-500"></i>비밀번호
+          </label>
+          <input type="password" name="password" 
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-400" 
+                 placeholder="비밀번호를 입력하세요" required>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="submit" 
+                  class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
+            <i class="bi bi-box-arrow-in-right mr-2"></i>로그인
+          </button>
+        </div>
+
+        <div class="text-center pt-4 border-t border-gray-200">
+          <p class="text-sm text-gray-600">
+            계정이 없으신가요?
+            <a href="{{ url_for('register') }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
+              회원가입
+            </a>
+          </p>
+        </div>
+      </form>
     </div>
   </div>
-</body>
-</html>
+</div>
+{% endblock %}
 
 
