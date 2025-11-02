@@ -443,13 +443,20 @@ def init_db_and_assets():
         print(f"Warning: Schema migration failed: {e}")
         pass
     
-    # 관리자 계정 생성 (없으면 생성)
+    # 관리자 계정 생성/업데이트
     try:
         admin_username = 'admin'
         admin_password = 'admin123!@#'
         # Use db.session.query instead of Member.query to ensure app context
-        admin = db.session.query(Member).filter_by(username=admin_username).first()
+        # 기존 관리자 계정 찾기: username='admin' 또는 business_number='0000000000' 또는 role='admin'
+        admin = db.session.query(Member).filter(
+            (Member.username == admin_username) |
+            (Member.business_number == '0000000000') |
+            (Member.role == 'admin')
+        ).first()
+        
         if not admin:
+            # 새 관리자 계정 생성
             admin = Member(
                 username=admin_username,
                 company_name='부산자동차매매사업자조합',
@@ -463,17 +470,27 @@ def init_db_and_assets():
             db.session.commit()
             print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
         else:
+            # 기존 관리자 계정 업데이트
+            if admin.username != admin_username:
+                admin.username = admin_username
+            if admin.business_number != '0000000000':
+                admin.business_number = '0000000000'
             if not getattr(admin, 'role', None) or admin.role != 'admin':
                 admin.role = 'admin'
-                # 기존 관리자 비밀번호도 업데이트
-                admin.set_password(admin_password)
-                db.session.commit()
-                print(f'관리자 계정 정보가 업데이트되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
+            if admin.approval_status != '승인':
+                admin.approval_status = '승인'
+            # 비밀번호 업데이트
+            admin.set_password(admin_password)
+            db.session.commit()
+            print(f'관리자 계정 정보가 업데이트되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
     except Exception as e:
-        print(f"Warning: Admin account creation failed: {e}")
+        print(f"Warning: Admin account creation/update failed: {e}")
         import traceback
         traceback.print_exc()
-        pass
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 # 관리자 권한 데코레이터
 def admin_required(view):
@@ -598,7 +615,10 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        user = Member.query.filter_by(username=username).first()
+        if db is None:
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return render_template('auth/login.html')
+        user = db.session.query(Member).filter_by(username=username).first()
         if user and user.check_password(password):
             if user.approval_status != '승인':
                 flash('관리자 승인 후 로그인 가능합니다.', 'warning')
@@ -618,6 +638,7 @@ def logout():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    ensure_initialized()  # Initialize on first request for Vercel
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -630,10 +651,13 @@ def register():
         mobile = request.form.get('mobile', '').strip()
         email = request.form.get('email', '').strip()
 
-        if Member.query.filter_by(username=username).first():
+        if db is None:
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return render_template('auth/register.html')
+        if db.session.query(Member).filter_by(username=username).first():
             flash('이미 존재하는 아이디입니다.', 'danger')
             return render_template('auth/register.html')
-        if business_number and Member.query.filter_by(business_number=business_number).first():
+        if business_number and db.session.query(Member).filter_by(business_number=business_number).first():
             flash('이미 등록된 사업자번호입니다.', 'danger')
             return render_template('auth/register.html')
 
@@ -675,6 +699,7 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    ensure_initialized()  # Ensure initialization
     return render_template('dashboard.html')
 
 
@@ -691,6 +716,7 @@ def uploaded_file(filename):
 @app.route('/terms')
 @login_required
 def terms():
+    ensure_initialized()  # Ensure initialization
     return render_template('terms.html')
 
 
@@ -746,6 +772,7 @@ def parse_datetime(value: str):
 @app.route('/insurance', methods=['GET', 'POST'])
 @login_required
 def insurance():
+    ensure_initialized()  # Ensure initialization
     if request.method == 'POST':
         action = request.form.get('action')
         
@@ -810,7 +837,10 @@ def insurance():
     end_date = parse_date(request.args.get('end_date', ''))
     edit_id = request.args.get('edit_id')  # 편집 모드
 
-    q = InsuranceApplication.query.filter_by(created_by_member_id=current_user.id)
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('dashboard'))
+    q = db.session.query(InsuranceApplication).filter_by(created_by_member_id=current_user.id)
     if start_date:
         q = q.filter(InsuranceApplication.desired_start_date >= start_date)
     if end_date:
@@ -945,6 +975,7 @@ def insurance_upload():
 @login_required
 @admin_required
 def admin_home():
+    ensure_initialized()  # Ensure initialization
     return render_template('admin/index.html')
 
 
@@ -952,6 +983,7 @@ def admin_home():
 @login_required
 @admin_required
 def admin_members():
+    ensure_initialized()  # Ensure initialization
     if request.method == 'POST':
         action = request.form.get('action')
         member_id = request.form.get('member_id')
@@ -995,7 +1027,7 @@ def admin_members():
                 role = request.form.get('role', 'member')
                 if not username or not company_name or not business_number:
                     flash('아이디/상사명/사업자번호는 필수입니다.', 'warning')
-                elif Member.query.filter((Member.username == username) | (Member.business_number == business_number)).first():
+                elif db.session.query(Member).filter((Member.username == username) | (Member.business_number == business_number)).first():
                     flash('이미 존재하는 아이디 또는 사업자번호입니다.', 'danger')
                 else:
                     nm = Member(
@@ -1018,7 +1050,10 @@ def admin_members():
                 return redirect(url_for('admin_members'))
 
     edit_id = request.args.get('edit_id')
-    members = Member.query.order_by(Member.created_at.desc()).all()
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('dashboard'))
+    members = db.session.query(Member).order_by(Member.created_at.desc()).all()
     return render_template('admin/members.html', members=members, edit_id=edit_id)
 
 
@@ -1026,6 +1061,10 @@ def admin_members():
 @login_required
 @admin_required
 def admin_members_upload():
+    ensure_initialized()  # Ensure initialization
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('admin_members'))
     if is_serverless:
         flash('Vercel 환경에서는 엑셀 업로드가 제한됩니다.', 'warning')
         return redirect(url_for('admin_members'))
@@ -1051,7 +1090,7 @@ def admin_members_upload():
                 skipped += 1
                 continue
             # Dup checks
-            if Member.query.filter((Member.username == username) | (Member.business_number == business_number)).first():
+            if db.session.query(Member).filter((Member.username == username) | (Member.business_number == business_number)).first():
                 skipped += 1
                 continue
             m = Member(
@@ -1082,10 +1121,14 @@ def admin_members_upload():
 @login_required
 @admin_required
 def admin_insurance():
+    ensure_initialized()  # Ensure initialization
     if request.method == 'POST':
         if request.form.get('bulk_approve') == '1':
             # 일괄 승인: 미승인(= status == 신청)인 데이터 모두 승인 시간 부여
-            rows = InsuranceApplication.query.filter(
+            if db is None:
+                flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+                return redirect(url_for('admin_insurance'))
+            rows = db.session.query(InsuranceApplication).filter(
                 (InsuranceApplication.approved_at.is_(None))
             ).all()
             now = datetime.now(KST)
@@ -1163,7 +1206,10 @@ def admin_insurance():
     appr_end = parse_date(request.args.get('appr_end', ''))
     edit_id = request.args.get('edit_id')
 
-    q = InsuranceApplication.query
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('dashboard'))
+    q = db.session.query(InsuranceApplication)
     if req_start:
         q = q.filter(InsuranceApplication.created_at >= datetime.combine(req_start, datetime.min.time(), tzinfo=KST))
     if req_end:
@@ -1242,11 +1288,15 @@ def admin_insurance():
 @login_required
 @admin_required
 def admin_insurance_download():
+    ensure_initialized()  # Ensure initialization
     # Import pandas only when needed
     import pandas as pd
     
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('admin_insurance'))
     # Export to Excel
-    rows = InsuranceApplication.query.order_by(InsuranceApplication.created_at.desc()).all()
+    rows = db.session.query(InsuranceApplication).order_by(InsuranceApplication.created_at.desc()).all()
     data = []
     for r in rows:
         data.append({
@@ -1283,6 +1333,7 @@ def admin_insurance_download():
 @login_required
 @admin_required
 def admin_settlement():
+    ensure_initialized()  # Ensure initialization
     year = int(request.args.get('year', datetime.now().year))
     month = int(request.args.get('month', datetime.now().month))
 
@@ -1293,7 +1344,10 @@ def admin_settlement():
     else:
         next_month = datetime(year, month + 1, 1, tzinfo=KST)
 
-    rows = InsuranceApplication.query.filter(
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('admin_settlement'))
+    rows = db.session.query(InsuranceApplication).filter(
         InsuranceApplication.start_at.is_not(None),
         InsuranceApplication.start_at >= start_period,
         InsuranceApplication.start_at < next_month,
@@ -1327,6 +1381,7 @@ def admin_settlement():
 @login_required
 @admin_required
 def admin_invoice():
+    ensure_initialized()  # Ensure initialization
     company = request.args.get('company', '')
     representative = request.args.get('representative', '')
     business_number = request.args.get('business_number', '')
@@ -1352,6 +1407,7 @@ def admin_invoice():
 @login_required
 @admin_required
 def admin_invoice_batch():
+    ensure_initialized()  # Ensure initialization
     # Render a combined printable page for all companies for the selected month
     year = int(request.args.get('year', datetime.now().year))
     month = int(request.args.get('month', datetime.now().month))
@@ -1362,7 +1418,10 @@ def admin_invoice_batch():
     else:
         next_month = datetime(year, month + 1, 1, tzinfo=KST)
 
-    rows = InsuranceApplication.query.filter(
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('admin_settlement'))
+    rows = db.session.query(InsuranceApplication).filter(
         InsuranceApplication.start_at.is_not(None),
         InsuranceApplication.start_at >= start_period,
         InsuranceApplication.start_at < next_month,
