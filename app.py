@@ -408,7 +408,8 @@ def init_db_and_assets():
     
     # 관리자 계정 생성 (없으면 생성)
     try:
-        admin_username = 'busan'
+        admin_username = 'admin'
+        admin_password = 'admin123!@#'
         # Use db.session.query instead of Member.query to ensure app context
         admin = db.session.query(Member).filter_by(username=admin_username).first()
         if not admin:
@@ -420,14 +421,17 @@ def init_db_and_assets():
                 approval_status='승인',
                 role='admin',
             )
-            admin.set_password('busan123')
+            admin.set_password(admin_password)
             db.session.add(admin)
             db.session.commit()
-            print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: busan123')
+            print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
         else:
             if not getattr(admin, 'role', None) or admin.role != 'admin':
                 admin.role = 'admin'
+                # 기존 관리자 비밀번호도 업데이트
+                admin.set_password(admin_password)
                 db.session.commit()
+                print(f'관리자 계정 정보가 업데이트되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
     except Exception as e:
         print(f"Warning: Admin account creation failed: {e}")
         import traceback
