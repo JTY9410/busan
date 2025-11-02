@@ -68,3 +68,8 @@ except Exception as e:
 # Ensure application is defined
 if 'application' not in globals():
     application = create_error_app("Application object not created")
+
+# Vercel Python runtime looks for 'handler' or 'app'
+# Export both for compatibility
+handler = application
+app = application
