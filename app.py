@@ -42,25 +42,47 @@ except Exception:
 
 # Robust detection for serverless / read-only FS
 def _is_read_only_fs() -> bool:
+    """Safely detect if filesystem is read-only (serverless environment)"""
     try:
-        test_dir = "/var/task/__wtest__"
+        # Use /tmp which is writable in most serverless environments
+        test_dir = "/tmp/__wtest__"
         os.makedirs(test_dir, exist_ok=True)
         test_file = os.path.join(test_dir, "t")
-        with open(test_file, "wb") as f:
-            f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
-        os.remove(test_file)
-        return False
-    except OSError:
-        return True
+        try:
+            with open(test_file, "wb") as f:
+                f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
+            os.remove(test_file)
+            return False
+        except (OSError, IOError, PermissionError):
+            return True
+        finally:
+            # Cleanup
+            try:
+                if os.path.exists(test_file):
+                    os.remove(test_file)
+            except Exception:
+                pass
+    except Exception:
+        # If we can't determine, assume serverless if VERCEL env var is set
+        return bool(os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'))
 
+# Check environment variables first (fastest and most reliable)
 is_serverless = bool(
     os.environ.get('VERCEL') or
     os.environ.get('VERCEL_ENV') or
     os.environ.get('AWS_LAMBDA_FUNCTION_NAME') or
     os.environ.get('LAMBDA_TASK_ROOT') or
-    os.environ.get('K_SERVICE') or
-    _is_read_only_fs()
+    os.environ.get('K_SERVICE')
 )
+
+# Only check filesystem if env vars didn't indicate serverless
+# This avoids potential import-time errors
+if not is_serverless:
+    try:
+        is_serverless = _is_read_only_fs()
+    except Exception:
+        # If filesystem check fails, default to non-serverless (safer for local dev)
+        is_serverless = False
 
 if is_serverless:
     INSTANCE_DIR = os.environ.get('INSTANCE_PATH', '/tmp/instance')

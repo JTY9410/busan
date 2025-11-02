@@ -1,9 +1,9 @@
-# Vercel Python runtime expects 'application'
+# Vercel Python runtime expects 'application' or 'handler'
 import sys
 import os
 import traceback
 
-# Ensure Vercel environment variables are set
+# Ensure Vercel environment variables are set BEFORE any other imports
 os.environ.setdefault('VERCEL', '1')
 os.environ.setdefault('VERCEL_ENV', os.environ.get('VERCEL_ENV', 'production'))
 os.environ.setdefault('PYTHONUNBUFFERED', '1')
@@ -20,6 +20,8 @@ def create_error_app(error_msg):
     @error_app.route('/', defaults={'path': ''})
     @error_app.route('/<path:path>')
     def error_handler(path):
+        # Escape HTML in error message for safety
+        escaped_msg = error_msg.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
         return f"""
         <html>
         <head><title>Application Error</title></head>
@@ -27,7 +29,7 @@ def create_error_app(error_msg):
             <h1>Application Initialization Error</h1>
             <p>The application failed to initialize on Vercel.</p>
             <h2>Error Details:</h2>
-            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">{error_msg}</pre>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap;">{escaped_msg}</pre>
             <h2>Please check:</h2>
             <ul>
                 <li>Vercel Function Logs for detailed error messages</li>
@@ -41,9 +43,11 @@ def create_error_app(error_msg):
     return error_app
 
 # Try to import the app with detailed error reporting
+application = None
+import_error = None
+
 try:
     # Import with detailed error handling
-    import sys
     import io
     
     # Capture import errors
@@ -61,7 +65,7 @@ try:
         sys.stderr = old_stderr
         stderr_output = stderr_capture.getvalue()
         if stderr_output:
-            print(f"Import stderr: {stderr_output}")
+            print(f"Import stderr: {stderr_output}", file=sys.stderr)
     
     if import_error:
         raise import_error
@@ -72,26 +76,44 @@ try:
     if not callable(application):
         raise RuntimeError(f"Application is not callable (type: {type(application)})")
     
-    print("✓ Successfully imported Flask app")
-    print(f"✓ Application type: {type(application)}")
-    print(f"✓ Application callable: {callable(application)}")
+    print("✓ Successfully imported Flask app", file=sys.stderr)
+    print(f"✓ Application type: {type(application)}", file=sys.stderr)
+    print(f"✓ Application callable: {callable(application)}", file=sys.stderr)
         
 except ImportError as e:
     error_msg = f"ImportError: {str(e)}\n\n{traceback.format_exc()}"
-    print(f"✗ Import failed: {error_msg}")
+    print(f"✗ Import failed: {error_msg}", file=sys.stderr)
     sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     application = create_error_app(error_msg)
 except Exception as e:
     error_msg = f"Unexpected error: {str(e)}\n\n{traceback.format_exc()}"
-    print(f"✗ Unexpected error: {error_msg}")
+    print(f"✗ Unexpected error: {error_msg}", file=sys.stderr)
     sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     application = create_error_app(error_msg)
 
 # Ensure application is defined
-if 'application' not in globals():
+if application is None:
     application = create_error_app("Application object not created")
 
-# Vercel Python runtime looks for 'handler' or 'app'
-# Export both for compatibility
-handler = application
+# Vercel Python runtime expects either:
+# 1. A WSGI application object (Flask app is WSGI-compatible)
+# 2. A handler function that accepts (event, context) and returns a response
+# 
+# For Flask apps, Vercel can work with the WSGI app directly.
+# We export both 'application' and 'app' as the WSGI app.
+# If Vercel requires a handler function, we can also provide one.
+
+# Export as WSGI application (primary method for Vercel Python runtime)
 app = application
+
+# Optional: Also provide a handler function for compatibility
+# Note: Vercel will use the WSGI app directly if available
+def handler(event, context=None):
+    """
+    Alternative handler function for Vercel (if needed).
+    Most Vercel deployments will use the WSGI app directly.
+    """
+    # If Vercel requires a function handler, this would need to implement
+    # the WSGI-to-event bridge. For now, return the app and let Vercel
+    # use the WSGI app directly.
+    return application
