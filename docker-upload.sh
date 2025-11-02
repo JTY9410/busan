@@ -40,7 +40,7 @@ fi
 # Docker 이미지 빌드
 echo ""
 echo "🔨 Docker 이미지 빌드 중..."
-docker build -t "$TAG_LATEST" -t "$TAG_VERSION" .
+docker build --no-cache -t "$TAG_LATEST" -t "$TAG_VERSION" .
 
 # 빌드 성공 확인
 if [ $? -eq 0 ]; then

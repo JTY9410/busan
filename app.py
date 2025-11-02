@@ -146,69 +146,54 @@ def create_app():
     return app
 
 
-# Lazy initialization for Vercel compatibility
-_app_instance = None
-_db_instance = None
-_login_manager_instance = None
+# SQLite foreign keys 설정 함수 (app 생성 전에 정의)
+_sqlite_pragma_registered = False
 
-def get_app():
-    """Get or create Flask app instance (lazy initialization)"""
-    global _app_instance, _db_instance, _login_manager_instance
-    if _app_instance is None:
+def register_sqlite_pragma():
+    """Register SQLite pragma event listener (called once, in app context)"""
+    global _sqlite_pragma_registered
+    if not _sqlite_pragma_registered:
         try:
-            _app_instance = create_app()
-            _db_instance = SQLAlchemy(_app_instance)
-            _login_manager_instance = LoginManager(_app_instance)
-            _login_manager_instance.login_view = 'login'
-            # Ensure tzlocal is available in Jinja templates
-            try:
-                _app_instance.jinja_env.globals['tzlocal'] = tzlocal
-            except Exception:
-                pass
-            # Register SQLite pragma after app is created
-            register_sqlite_pragma()
-            print("✓ Flask app created successfully")
+            # Register on Engine class level (doesn't require app context)
+            @event.listens_for(Engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                """SQLite 연결 시 foreign keys 활성화"""
+                try:
+                    if hasattr(dbapi_connection, 'cursor'):
+                        cursor = dbapi_connection.cursor()
+                        cursor.execute("PRAGMA foreign_keys=ON")
+                        cursor.close()
+                except Exception:
+                    pass
+            _sqlite_pragma_registered = True
         except Exception as e:
-            import traceback
-            error_msg = f"CRITICAL: App creation failed: {e}\n{traceback.format_exc()}"
-            print(error_msg)
-            # Create minimal error app instead of crashing
-            try:
-                _app_instance = Flask(__name__)
-                @_app_instance.route('/', defaults={'path': ''})
-                @_app_instance.route('/<path:path>')
-                def error_handler(path):
-                    return f"<h1>App Initialization Failed</h1><pre>{error_msg}</pre>", 500
-            except Exception:
-                # If even minimal app creation fails, create a basic one
-                _app_instance = Flask(__name__)
-                pass
-    return _app_instance
+            print(f"Warning: Failed to register SQLite pragma: {e}")
+            pass
 
-def get_db():
-    """Get or create database instance"""
-    global _db_instance
-    if _db_instance is None:
-        get_app()  # Ensure app is created first
-    return _db_instance
-
-def get_login_manager():
-    """Get or create login manager instance"""
-    global _login_manager_instance
-    if _login_manager_instance is None:
-        get_app()  # Ensure app is created first
-    return _login_manager_instance
-
-# Create app, db, login_manager (but handle errors gracefully)
+# Create app and extensions using standard Flask pattern
 try:
-    app = get_app()
-    db = get_db()
-    login_manager = get_login_manager()
+    app = create_app()
+    db = SQLAlchemy()
+    login_manager = LoginManager()
+    
+    # Initialize extensions with app
+    db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+    
+    # Ensure tzlocal is available in Jinja templates
+    try:
+        app.jinja_env.globals['tzlocal'] = tzlocal
+    except Exception:
+        pass
+    # Register SQLite pragma after app is created
+    register_sqlite_pragma()
+    print("✓ Flask app created successfully")
 except Exception as e:
     import traceback
-    print(f"Warning: Initial module-level initialization failed: {e}")
-    traceback.print_exc()
-    # Create minimal app to prevent import errors
+    error_msg = f"CRITICAL: App creation failed: {e}\n{traceback.format_exc()}"
+    print(error_msg)
+    # Create minimal error app instead of crashing
     app = Flask(__name__)
     db = None
     login_manager = None
@@ -287,13 +272,9 @@ def ensure_logo():
         pass
 
 
-# Models need db to be available - ensure it's initialized
-try:
-    if db is None:
-        db = get_db()
-except Exception:
-    # If db initialization fails, we'll handle it in routes
-    pass
+# Models need db to be available - ensure it exists
+if db is None:
+    raise RuntimeError("Database instance not initialized. Check app creation.")
 
 class Member(UserMixin, db.Model):
     __table_args__ = (
@@ -373,21 +354,31 @@ class InsuranceApplication(db.Model):
             self.status = '종료'
 
 
-# User loader (will be registered after login_manager is available)
+# User loader - register conditionally
 def load_user(user_id):
     try:
-        return get_db().session.get(Member, int(user_id))
+        if db is None or login_manager is None:
+            return None
+        return db.session.get(Member, int(user_id))
     except Exception:
         return None
 
+# Register user loader only if login_manager exists
+if login_manager is not None:
+    login_manager.user_loader(load_user)
+
 
 def init_db_and_assets():
-    """데이터베이스 및 리소스 초기화"""
+    """데이터베이스 및 리소스 초기화 (app context 내에서 호출해야 함)"""
+    from flask import current_app
+    
+    if db is None:
+        print("Warning: db is None, skipping initialization")
+        return
+    
     try:
-        # Ensure db is available
-        actual_db = get_db() if db is None else db
         # Vercel에서도 in-memory SQLite를 사용하므로 테이블 생성은 항상 수행
-        actual_db.create_all()
+        db.create_all()
     except Exception as e:
         print(f"Warning: Database creation failed: {e}")
         import traceback
@@ -402,24 +393,24 @@ def init_db_and_assets():
 
     # 스키마 보정: role 컬럼이 없으면 추가 (SQLite만)
     try:
-        actual_db = get_db() if db is None else db
         from sqlalchemy import text
-        if 'sqlite' in get_app().config['SQLALCHEMY_DATABASE_URI']:
-            res = actual_db.session.execute(text("PRAGMA table_info(member)"))
+        db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if 'sqlite' in db_uri:
+            res = db.session.execute(text("PRAGMA table_info(member)"))
             cols = [r[1] for r in res.fetchall()]
             if 'role' not in cols:
                 if not is_serverless:  # Vercel 환경이 아니면 스키마 변경
-                    actual_db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
-                    actual_db.session.commit()
+                    db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
+                    db.session.commit()
     except Exception as e:
         print(f"Warning: Schema migration failed: {e}")
         pass
     
     # 관리자 계정 생성 (없으면 생성)
     try:
-        actual_db = get_db() if db is None else db
         admin_username = 'busan'
-        admin = Member.query.filter_by(username=admin_username).first()
+        # Use db.session.query instead of Member.query to ensure app context
+        admin = db.session.query(Member).filter_by(username=admin_username).first()
         if not admin:
             admin = Member(
                 username=admin_username,
@@ -430,13 +421,13 @@ def init_db_and_assets():
                 role='admin',
             )
             admin.set_password('busan123')
-            actual_db.session.add(admin)
-            actual_db.session.commit()
+            db.session.add(admin)
+            db.session.commit()
             print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: busan123')
         else:
             if not getattr(admin, 'role', None) or admin.role != 'admin':
                 admin.role = 'admin'
-                actual_db.session.commit()
+                db.session.commit()
     except Exception as e:
         print(f"Warning: Admin account creation failed: {e}")
         import traceback
@@ -460,9 +451,17 @@ _initialized = False
 
 def ensure_initialized():
     """Ensure database and assets are initialized (called on first request)"""
+    from flask import has_app_context, current_app
+    
     global _initialized
     if not _initialized:
         try:
+            # Ensure we have app context
+            if not has_app_context():
+                # This should not happen in a request, but handle it
+                print("Warning: ensure_initialized called without app context")
+                return
+            # Now init_db_and_assets can safely use current_app and db
             init_db_and_assets()
             _initialized = True
         except Exception as e:
@@ -472,56 +471,10 @@ def ensure_initialized():
             # Mark as initialized anyway to avoid infinite retry loops
             _initialized = True
 
-# SQLite foreign keys 설정 (lazy registration)
-_sqlite_pragma_registered = False
+# SQLite pragma registration is now done in register_sqlite_pragma() above
 
-def register_sqlite_pragma():
-    """Register SQLite pragma event listener (called once, in app context)"""
-    global _sqlite_pragma_registered
-    if not _sqlite_pragma_registered:
-        try:
-            # Register on Engine class level (doesn't require app context)
-            @event.listens_for(Engine, "connect")
-            def set_sqlite_pragma(dbapi_connection, connection_record):
-                """SQLite 연결 시 foreign keys 활성화"""
-                try:
-                    if hasattr(dbapi_connection, 'cursor'):
-                        cursor = dbapi_connection.cursor()
-                        cursor.execute("PRAGMA foreign_keys=ON")
-                        cursor.close()
-                except Exception:
-                    pass
-            _sqlite_pragma_registered = True
-        except Exception as e:
-            print(f"Warning: Failed to register SQLite pragma: {e}")
-            pass
-
-# Don't register at module level - will be registered when app initializes
-
-# Register user loader after login_manager is available
-def _register_user_loader():
-    """Register user loader after login_manager is ready"""
-    try:
-        lm = get_login_manager()
-        if lm and not hasattr(lm, '_user_loader_registered'):
-            lm.user_loader(load_user)
-            lm._user_loader_registered = True
-    except Exception:
-        pass
-
-# Try to register user loader
-try:
-    _register_user_loader()
-except Exception:
-    pass
-
-# Initialize immediately for non-Vercel environments
-if not is_serverless:
-    try:
-        with app.app_context():
-            ensure_initialized()
-    except Exception as e:
-        print(f"Warning: Non-serverless initialization failed: {e}")
+# Don't initialize at module level - wait for first request
+# This avoids app context issues
 
 
 @app.context_processor
@@ -535,8 +488,6 @@ def inject_jinja_globals():
 @app.route('/')
 def index():
     try:
-        # Ensure login_manager user_loader is registered
-        _register_user_loader()
         ensure_initialized()  # Initialize on first request for Vercel
         if current_user.is_authenticated:
             return redirect(url_for('dashboard'))
@@ -549,12 +500,15 @@ def index():
 @app.route('/healthz')
 def healthz():
     try:
+        if db is None:
+            return 'db not initialized', 500
         ensure_initialized()
         # Simple DB check
-        db.session.execute(db.text('SELECT 1')) if hasattr(db, 'text') else None
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
         return 'ok', 200
-    except Exception:
-        return 'error', 500
+    except Exception as e:
+        return f'error: {str(e)}', 500
 
 @app.route('/favicon.ico')
 def favicon():
