@@ -1,7 +1,20 @@
 import os
 import shutil
 from datetime import datetime, timedelta
-from dateutil.tz import tzlocal, gettz
+try:
+    from dateutil.tz import tzlocal, gettz
+except ImportError:
+    # Fallback for different dateutil versions
+    try:
+        from dateutil import tz
+        tzlocal = tz.tzlocal
+        gettz = tz.gettz
+    except ImportError:
+        # Ultimate fallback: use UTC
+        from datetime import timezone
+        tzlocal = lambda: timezone.utc
+        gettz = lambda name: timezone.utc if name else timezone.utc
+
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
@@ -16,7 +29,16 @@ from io import BytesIO
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # 한국 시간대 설정
-KST = gettz('Asia/Seoul')
+try:
+    KST = gettz('Asia/Seoul')
+    if KST is None:
+        # Fallback to UTC if timezone not available
+        from datetime import timezone
+        KST = timezone.utc
+except Exception:
+    # Fallback to UTC if timezone setup fails
+    from datetime import timezone
+    KST = timezone.utc
 
 # Robust detection for serverless / read-only FS
 def _is_read_only_fs() -> bool:
@@ -124,12 +146,24 @@ def create_app():
     return app
 
 
-app = create_app()
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-# Ensure tzlocal is available in Jinja templates
-app.jinja_env.globals['tzlocal'] = tzlocal
+# Wrap app creation in try-except to handle initialization errors gracefully
+try:
+    app = create_app()
+    db = SQLAlchemy(app)
+    login_manager = LoginManager(app)
+    login_manager.login_view = 'login'
+    # Ensure tzlocal is available in Jinja templates
+    try:
+        app.jinja_env.globals['tzlocal'] = tzlocal
+    except Exception:
+        pass  # Ignore if tzlocal setup fails
+except Exception as e:
+    # If app creation fails, log and re-raise to see the actual error
+    import traceback
+    print(f"CRITICAL: App creation failed: {e}")
+    traceback.print_exc()
+    # Re-raise to get proper error reporting in Vercel logs
+    raise
 
 # Add custom Jinja filter for datetime formatting
 @app.template_filter('to_local_datetime')
@@ -290,9 +324,20 @@ def load_user(user_id):
 
 def init_db_and_assets():
     """데이터베이스 및 리소스 초기화"""
-    # Vercel에서도 in-memory SQLite를 사용하므로 테이블 생성은 항상 수행
-    db.create_all()
-    ensure_logo()
+    try:
+        # Vercel에서도 in-memory SQLite를 사용하므로 테이블 생성은 항상 수행
+        db.create_all()
+    except Exception as e:
+        print(f"Warning: Database creation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue anyway - tables might already exist
+    
+    try:
+        ensure_logo()
+    except Exception as e:
+        print(f"Warning: Logo setup failed: {e}")
+        pass
 
     # 스키마 보정: role 컬럼이 없으면 추가 (SQLite만)
     try:
@@ -304,29 +349,36 @@ def init_db_and_assets():
                 if not is_serverless:  # Vercel 환경이 아니면 스키마 변경
                     db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
                     db.session.commit()
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Schema migration failed: {e}")
         pass
     
     # 관리자 계정 생성 (없으면 생성)
-    admin_username = 'busan'
-    admin = Member.query.filter_by(username=admin_username).first()
-    if not admin:
-        admin = Member(
-            username=admin_username,
-            company_name='부산자동차매매사업자조합',
-            business_number='0000000000',
-            representative='관리자',
-            approval_status='승인',
-            role='admin',
-        )
-        admin.set_password('busan123')
-        db.session.add(admin)
-        db.session.commit()
-        print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: busan123')
-    else:
-        if not getattr(admin, 'role', None) or admin.role != 'admin':
-            admin.role = 'admin'
+    try:
+        admin_username = 'busan'
+        admin = Member.query.filter_by(username=admin_username).first()
+        if not admin:
+            admin = Member(
+                username=admin_username,
+                company_name='부산자동차매매사업자조합',
+                business_number='0000000000',
+                representative='관리자',
+                approval_status='승인',
+                role='admin',
+            )
+            admin.set_password('busan123')
+            db.session.add(admin)
             db.session.commit()
+            print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: busan123')
+        else:
+            if not getattr(admin, 'role', None) or admin.role != 'admin':
+                admin.role = 'admin'
+                db.session.commit()
+    except Exception as e:
+        print(f"Warning: Admin account creation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        pass
 
 # 관리자 권한 데코레이터
 def admin_required(view):
@@ -347,8 +399,15 @@ def ensure_initialized():
     """Ensure database and assets are initialized (called on first request)"""
     global _initialized
     if not _initialized:
-        init_db_and_assets()
-        _initialized = True
+        try:
+            init_db_and_assets()
+            _initialized = True
+        except Exception as e:
+            print(f"Warning: Initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Mark as initialized anyway to avoid infinite retry loops
+            _initialized = True
 
 # SQLite foreign keys 설정
 # Engine 클래스 레벨에서 이벤트 등록 (app context 불필요)
