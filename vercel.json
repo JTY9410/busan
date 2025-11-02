@@ -12,12 +12,11 @@
       "dest": "api/index.py"
     }
   ],
-  "env": {
-    "SECRET_KEY": "your-secret-key-for-vercel",
-    "PYTHONUNBUFFERED": "1",
-    "VERCEL": "1",
-    "INSTANCE_PATH": "/tmp/instance",
-    "DATA_DIR": "/tmp/data"
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
   }
 }
 

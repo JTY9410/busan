@@ -1,6 +1,15 @@
 # Vercel Python runtime expects 'application'
 import sys
+import os
 import traceback
+
+# Ensure Vercel environment variables are set
+os.environ.setdefault('VERCEL', '1')
+os.environ.setdefault('VERCEL_ENV', os.environ.get('VERCEL_ENV', 'production'))
+os.environ.setdefault('PYTHONUNBUFFERED', '1')
+os.environ.setdefault('INSTANCE_PATH', '/tmp/instance')
+os.environ.setdefault('DATA_DIR', '/tmp/data')
+os.environ.setdefault('UPLOAD_DIR', '/tmp/uploads')
 
 # Add better error logging for Vercel
 def create_error_app(error_msg):
@@ -33,17 +42,17 @@ def create_error_app(error_msg):
 
 # Try to import the app with detailed error reporting
 try:
-    # Set Vercel environment variables before import
-    import os
-    if not os.environ.get('VERCEL'):
-        os.environ['VERCEL'] = '1'
-    
     from app import app as application
-    print("✓ Successfully imported Flask app")
     
-    # Verify the app is callable (required by Vercel)
+    if application is None:
+        raise RuntimeError("Application is None")
+    
     if not callable(application):
         raise RuntimeError("Application is not callable")
+    
+    print("✓ Successfully imported Flask app")
+    print(f"✓ Application type: {type(application)}")
+    print(f"✓ Application callable: {callable(application)}")
         
 except ImportError as e:
     error_msg = f"ImportError: {str(e)}\n\n{traceback.format_exc()}"
@@ -55,3 +64,7 @@ except Exception as e:
     print(f"✗ Unexpected error: {error_msg}")
     sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     application = create_error_app(error_msg)
+
+# Ensure application is defined
+if 'application' not in globals():
+    application = create_error_app("Application object not created")
