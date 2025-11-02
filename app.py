@@ -291,102 +291,124 @@ def ensure_logo():
 
 
 # Models need db to be available - but handle gracefully for Vercel
-# In Vercel, db might not be initialized at module level, so defer model definition
-if db is None and not is_serverless:
-    raise RuntimeError("Database instance not initialized. Check app creation.")
+# Always define models - they will be properly initialized when db is available
+# For Vercel: models are defined conditionally but Member/InsuranceApplication classes always exist
+_model_classes_defined = False
 
-# For Vercel: if db is None, delay model definition until db is available
-# This allows the module to import successfully
-if db is not None:
-    ModelBase = db.Model
+def define_models():
+    """Define SQLAlchemy models - called once when db is available"""
+    global Member, InsuranceApplication, _model_classes_defined
     
-    class Member(UserMixin, ModelBase):
-        id = db.Column(db.Integer, primary_key=True)
-        username = db.Column(db.String(120), unique=True, nullable=False)
-        password_hash = db.Column(db.String(255), nullable=False)
-        company_name = db.Column(db.String(255))
-        address = db.Column(db.String(255))
-        business_number = db.Column(db.String(64), unique=True)
-        corporation_number = db.Column(db.String(64))
-        representative = db.Column(db.String(128))
-        phone = db.Column(db.String(64))
-        mobile = db.Column(db.String(64))
-        email = db.Column(db.String(255))
-        registration_cert_path = db.Column(db.String(512))
-        approval_status = db.Column(db.String(32), default='신청')  # 신청, 승인중, 승인
-        role = db.Column(db.String(32), default='member')  # member, admin
-        created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
+    if _model_classes_defined or db is None:
+        return
+    
+    try:
+        ModelBase = db.Model
         
-        __table_args__ = (
-            Index('idx_member_created_at', 'created_at'),
-            CheckConstraint("approval_status IN ('신청','승인중','승인')", name='ck_member_approval_status'),
-            CheckConstraint("role IN ('member','admin')", name='ck_member_role'),
-        )
+        class Member(UserMixin, ModelBase):
+            id = db.Column(db.Integer, primary_key=True)
+            username = db.Column(db.String(120), unique=True, nullable=False)
+            password_hash = db.Column(db.String(255), nullable=False)
+            company_name = db.Column(db.String(255))
+            address = db.Column(db.String(255))
+            business_number = db.Column(db.String(64), unique=True)
+            corporation_number = db.Column(db.String(64))
+            representative = db.Column(db.String(128))
+            phone = db.Column(db.String(64))
+            mobile = db.Column(db.String(64))
+            email = db.Column(db.String(255))
+            registration_cert_path = db.Column(db.String(512))
+            approval_status = db.Column(db.String(32), default='신청')  # 신청, 승인중, 승인
+            role = db.Column(db.String(32), default='member')  # member, admin
+            created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
+            
+            __table_args__ = (
+                Index('idx_member_created_at', 'created_at'),
+                CheckConstraint("approval_status IN ('신청','승인중','승인')", name='ck_member_approval_status'),
+                CheckConstraint("role IN ('member','admin')", name='ck_member_role'),
+            )
 
-        def set_password(self, password: str) -> None:
-            self.password_hash = generate_password_hash(password)
+            def set_password(self, password: str) -> None:
+                self.password_hash = generate_password_hash(password)
 
-        def check_password(self, password: str) -> bool:
-            return check_password_hash(self.password_hash, password)
+            def check_password(self, password: str) -> bool:
+                return check_password_hash(self.password_hash, password)
 
-    class InsuranceApplication(ModelBase):
-        id = db.Column(db.Integer, primary_key=True)
-        created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))  # 신청시간 (timezone-aware)
-        desired_start_date = db.Column(db.Date, nullable=False)  # 가입희망일자
-        start_at = db.Column(db.DateTime(timezone=True))  # 가입시간 (timezone-aware)
-        end_at = db.Column(db.DateTime(timezone=True))  # 종료시간 (timezone-aware)
-        approved_at = db.Column(db.DateTime(timezone=True))  # 조합승인시간 (timezone-aware)
-        insured_code = db.Column(db.String(64))  # 피보험자코드 = 사업자번호
-        contractor_code = db.Column(db.String(64), default='부산자동차매매사업자조합')  # 계약자코드
-        car_plate = db.Column(db.String(64))  # 한글차량번호
-        vin = db.Column(db.String(64))  # 차대번호
-        car_name = db.Column(db.String(128))  # 차량명
-        car_registered_at = db.Column(db.Date)  # 차량등록일자
-        premium = db.Column(db.Integer, default=9500)  # 보험료 9500 고정
-        status = db.Column(db.String(32), default='신청')  # 신청, 조합승인, 가입, 종료
-        memo = db.Column(db.String(255))  # 비고
-        created_by_member_id = db.Column(db.Integer, db.ForeignKey('member.id'))
+        class InsuranceApplication(ModelBase):
+            id = db.Column(db.Integer, primary_key=True)
+            created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))  # 신청시간 (timezone-aware)
+            desired_start_date = db.Column(db.Date, nullable=False)  # 가입희망일자
+            start_at = db.Column(db.DateTime(timezone=True))  # 가입시간 (timezone-aware)
+            end_at = db.Column(db.DateTime(timezone=True))  # 종료시간 (timezone-aware)
+            approved_at = db.Column(db.DateTime(timezone=True))  # 조합승인시간 (timezone-aware)
+            insured_code = db.Column(db.String(64))  # 피보험자코드 = 사업자번호
+            contractor_code = db.Column(db.String(64), default='부산자동차매매사업자조합')  # 계약자코드
+            car_plate = db.Column(db.String(64))  # 한글차량번호
+            vin = db.Column(db.String(64))  # 차대번호
+            car_name = db.Column(db.String(128))  # 차량명
+            car_registered_at = db.Column(db.Date)  # 차량등록일자
+            premium = db.Column(db.Integer, default=9500)  # 보험료 9500 고정
+            status = db.Column(db.String(32), default='신청')  # 신청, 조합승인, 가입, 종료
+            memo = db.Column(db.String(255))  # 비고
+            created_by_member_id = db.Column(db.Integer, db.ForeignKey('member.id'))
 
-        __table_args__ = (
-            Index('idx_ins_app_created_by', 'created_by_member_id'),
-            Index('idx_ins_app_desired', 'desired_start_date'),
-            Index('idx_ins_app_created', 'created_at'),
-            Index('idx_ins_app_approved', 'approved_at'),
-            Index('idx_ins_app_status', 'status'),
-            Index('idx_ins_app_start', 'start_at'),
-            Index('idx_ins_app_car_plate', 'car_plate'),
-            Index('idx_ins_app_vin', 'vin'),
-            CheckConstraint("status IN ('신청','조합승인','가입','종료')", name='ck_ins_app_status'),
-        )
+            __table_args__ = (
+                Index('idx_ins_app_created_by', 'created_by_member_id'),
+                Index('idx_ins_app_desired', 'desired_start_date'),
+                Index('idx_ins_app_created', 'created_at'),
+                Index('idx_ins_app_approved', 'approved_at'),
+                Index('idx_ins_app_status', 'status'),
+                Index('idx_ins_app_start', 'start_at'),
+                Index('idx_ins_app_car_plate', 'car_plate'),
+                Index('idx_ins_app_vin', 'vin'),
+                CheckConstraint("status IN ('신청','조합승인','가입','종료')", name='ck_ins_app_status'),
+            )
 
-        created_by_member = db.relationship('Member', backref='applications')
+            created_by_member = db.relationship('Member', backref='applications')
 
-        def recompute_status(self) -> None:
-            now = datetime.now(KST)
-            approved_at_local = _ensure_aware(self.approved_at)
-            end_at_local = _ensure_aware(self.end_at)
-            # After approval + 2 hours -> 가입
-            if self.status in ('신청', '조합승인'):
-                if approved_at_local and now >= approved_at_local + timedelta(hours=2):
-                    self.status = '가입'
-                    if not self.start_at: # 이미 start_at이 설정되어 있지 않은 경우에만 자동 설정
-                        # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
-                        start_date = datetime.combine(self.desired_start_date, datetime.min.time(), tzinfo=KST)
-                        self.start_at = start_date
-                        self.end_at = start_date + timedelta(days=30)
-            # 종료일 경과 -> 종료
-            if end_at_local and now >= end_at_local:
-                self.status = '종료'
+            def recompute_status(self) -> None:
+                now = datetime.now(KST)
+                approved_at_local = _ensure_aware(self.approved_at)
+                end_at_local = _ensure_aware(self.end_at)
+                # After approval + 2 hours -> 가입
+                if self.status in ('신청', '조합승인'):
+                    if approved_at_local and now >= approved_at_local + timedelta(hours=2):
+                        self.status = '가입'
+                        if not self.start_at: # 이미 start_at이 설정되어 있지 않은 경우에만 자동 설정
+                            # 가입일/종료일 설정: 가입희망일자 기준으로 세팅, 종료는 30일 후
+                            start_date = datetime.combine(self.desired_start_date, datetime.min.time(), tzinfo=KST)
+                            self.start_at = start_date
+                            self.end_at = start_date + timedelta(days=30)
+                # 종료일 경과 -> 종료
+                if end_at_local and now >= end_at_local:
+                    self.status = '종료'
+        
+        _model_classes_defined = True
+        print("✓ Models defined successfully")
+    except Exception as e:
+        print(f"✗ Model definition failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+# Initialize models if db is available at module import time
+if db is not None:
+    define_models()
 else:
-    # Create stub models for Vercel compatibility when db is not yet initialized
-    # These will be redefined when db is initialized in ensure_initialized()
+    # Create minimal stub classes for import compatibility
     class Member(UserMixin):
+        id = None
+        username = None
+        approval_status = None
+        role = None
+        business_number = None
         def set_password(self, password: str) -> None:
             pass
         def check_password(self, password: str) -> bool:
             return False
 
     class InsuranceApplication:
+        id = None
+        status = None
         def recompute_status(self) -> None:
             pass
 
@@ -396,7 +418,15 @@ def load_user(user_id):
     try:
         if db is None or login_manager is None:
             return None
-        return db.session.get(Member, int(user_id))
+        # Ensure models are defined
+        if not _model_classes_defined:
+            try:
+                define_models()
+            except Exception:
+                pass
+        if _model_classes_defined:
+            return db.session.get(Member, int(user_id))
+        return None
     except Exception:
         return None
 
@@ -412,6 +442,14 @@ def init_db_and_assets():
     if db is None:
         print("Warning: db is None, skipping initialization")
         return
+    
+    # Ensure models are defined before creating tables
+    try:
+        define_models()
+    except Exception as e:
+        print(f"Warning: Model definition failed: {e}")
+        import traceback
+        traceback.print_exc()
     
     try:
         # Vercel에서도 in-memory SQLite를 사용하므로 테이블 생성은 항상 수행

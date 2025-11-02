@@ -42,13 +42,35 @@ def create_error_app(error_msg):
 
 # Try to import the app with detailed error reporting
 try:
-    from app import app as application
+    # Import with detailed error handling
+    import sys
+    import io
+    
+    # Capture import errors
+    old_stderr = sys.stderr
+    stderr_capture = io.StringIO()
+    sys.stderr = stderr_capture
+    
+    try:
+        from app import app as application
+        import_error = None
+    except Exception as import_err:
+        import_error = import_err
+        application = None
+    finally:
+        sys.stderr = old_stderr
+        stderr_output = stderr_capture.getvalue()
+        if stderr_output:
+            print(f"Import stderr: {stderr_output}")
+    
+    if import_error:
+        raise import_error
     
     if application is None:
-        raise RuntimeError("Application is None")
+        raise RuntimeError("Application is None after import")
     
     if not callable(application):
-        raise RuntimeError("Application is not callable")
+        raise RuntimeError(f"Application is not callable (type: {type(application)})")
     
     print("✓ Successfully imported Flask app")
     print(f"✓ Application type: {type(application)}")
