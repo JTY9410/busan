@@ -786,10 +786,35 @@ def admin_required(view):
     from functools import wraps
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not current_user.is_authenticated or getattr(current_user, 'role', 'member') != 'admin':
-            flash('관리자만 접근 가능합니다.', 'warning')
+        try:
+            # Safely check authentication
+            is_auth = False
+            try:
+                is_auth = getattr(current_user, 'is_authenticated', False)
+            except Exception:
+                # If current_user access fails, assume not authenticated
+                pass
+            
+            if not is_auth:
+                flash('로그인이 필요합니다.', 'warning')
+                return redirect(url_for('login'))
+            
+            # Check admin role
+            user_role = getattr(current_user, 'role', 'member')
+            if user_role != 'admin':
+                flash('관리자만 접근 가능합니다.', 'warning')
+                return redirect(url_for('dashboard'))
+            
+            return view(*args, **kwargs)
+        except Exception as e:
+            # If any error occurs in the decorator, log and redirect
+            try:
+                import sys
+                sys.stderr.write(f"Error in admin_required decorator: {e}\n")
+            except Exception:
+                pass
+            flash('권한 확인 중 오류가 발생했습니다.', 'danger')
             return redirect(url_for('dashboard'))
-        return view(*args, **kwargs)
     return wrapped
 
 
@@ -1971,20 +1996,83 @@ def admin_invoice_batch():
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(e):
+    """Handle all unhandled exceptions with detailed logging"""
     # Let Flask/Flask-Login handle HTTPExceptions (e.g., 401 login required)
     if isinstance(e, HTTPException):
         return e
-    # Log full stack trace for debugging while showing a friendly message to users
-    app.logger.exception("Unhandled exception")
+    
+    # Log full stack trace for debugging
+    import traceback
+    error_trace = traceback.format_exc()
+    error_msg = str(e)
+    error_type = type(e).__name__
+    
+    # Log to stderr for Vercel (more reliable than app.logger)
     try:
-        flash('서버 처리 중 오류가 발생했습니다.', 'danger')
-        # If not authenticated, send to login; else, dashboard
-        if not getattr(current_user, 'is_authenticated', False):
-            return redirect(url_for('login'))
-        return redirect(url_for('dashboard'))
+        import sys
+        sys.stderr.write(f"\n{'='*60}\n")
+        sys.stderr.write(f"UNHANDLED EXCEPTION: {error_type}\n")
+        sys.stderr.write(f"Error Message: {error_msg}\n")
+        sys.stderr.write(f"Traceback:\n{error_trace}\n")
+        sys.stderr.write(f"{'='*60}\n")
     except Exception:
-        # Fallback minimal response if flashing/redirecting fails (e.g., outside request context)
-        return ("", 500)
+        pass
+    
+    # Also log via Flask logger if available
+    try:
+        app.logger.exception("Unhandled exception")
+    except Exception:
+        pass
+    
+    # Try to provide user-friendly error message
+    try:
+        from flask import request, has_request_context
+        
+        if has_request_context():
+            # Only flash if we're in a request context
+            try:
+                flash('서버 처리 중 오류가 발생했습니다.', 'danger')
+            except Exception:
+                pass
+            
+            # Try to redirect appropriately
+            try:
+                # Check authentication status safely
+                is_auth = False
+                try:
+                    from flask_login import current_user
+                    is_auth = getattr(current_user, 'is_authenticated', False)
+                except Exception:
+                    pass
+                
+                if not is_auth:
+                    try:
+                        return redirect(url_for('login'))
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        return redirect(url_for('dashboard'))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        
+        # If redirect failed, show error page
+        try:
+            from flask import render_template
+            return render_template('error.html', error_message=error_msg), 500
+        except Exception:
+            pass
+        
+    except Exception:
+        pass
+    
+    # Ultimate fallback: return minimal error response
+    try:
+        return f"<h1>서버 오류</h1><p>오류가 발생했습니다: {error_type}</p>", 500
+    except Exception:
+        return ("서버 오류가 발생했습니다.", 500)
 
 
 if __name__ == '__main__':
