@@ -636,6 +636,18 @@ if app is not None:
         except Exception:
             return {'tzlocal': tzlocal}
 
+    @app.before_request
+    def _ensure_login_manager_attached():
+        """Ensure Flask-Login is attached before accessing current_user."""
+        try:
+            from flask import current_app
+            if login_manager is not None and not hasattr(current_app, 'login_manager'):
+                login_manager.init_app(current_app)
+                login_manager.login_view = 'login'
+        except Exception:
+            # Best-effort attach; detailed errors will be visible in function logs
+            pass
+
 
 @app.route('/')
 def index():
