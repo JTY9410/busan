@@ -591,6 +591,18 @@ def ensure_initialized():
                 return
             # Now init_db_and_assets can safely use current_app and db
             init_db_and_assets()
+            # Ensure extensions are initialized and attached to app
+            try:
+                if db is not None:
+                    db.init_app(current_app)
+            except Exception:
+                pass
+            try:
+                if login_manager is not None and not hasattr(current_app, 'login_manager'):
+                    login_manager.init_app(current_app)
+                    login_manager.login_view = 'login'
+            except Exception:
+                pass
             _initialized = True
         except Exception as e:
             print(f"Warning: Initialization failed: {e}")
