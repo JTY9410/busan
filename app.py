@@ -16,6 +16,7 @@ except ImportError:
         gettz = lambda name: timezone.utc if name else timezone.utc
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
+from werkzeug.exceptions import HTTPException
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
 from sqlalchemy.pool import NullPool
@@ -1557,10 +1558,16 @@ def admin_invoice_batch():
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(e):
+    # Let Flask/Flask-Login handle HTTPExceptions (e.g., 401 login required)
+    if isinstance(e, HTTPException):
+        return e
     # Log full stack trace for debugging while showing a friendly message to users
     app.logger.exception("Unhandled exception")
     try:
         flash('서버 처리 중 오류가 발생했습니다.', 'danger')
+        # If not authenticated, send to login; else, dashboard
+        if not getattr(current_user, 'is_authenticated', False):
+            return redirect(url_for('login'))
         return redirect(url_for('dashboard'))
     except Exception:
         # Fallback minimal response if flashing/redirecting fails (e.g., outside request context)
