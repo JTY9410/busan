@@ -209,10 +209,38 @@ try:
     db = SQLAlchemy()
     login_manager = LoginManager()
     
-    # Initialize extensions with app
+    # Initialize extensions with app - CRITICAL for serverless
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'login'
+    
+    # Verify extensions are attached
+    if not hasattr(app, 'extensions') or 'sqlalchemy' not in app.extensions:
+        try:
+            import sys
+            sys.stderr.write("WARNING: SQLAlchemy not properly attached to app\n")
+            # Force re-init
+            db.init_app(app)
+        except Exception as e:
+            try:
+                import sys
+                sys.stderr.write(f"WARNING: Failed to re-init db: {e}\n")
+            except Exception:
+                pass
+    
+    if not hasattr(app, 'login_manager'):
+        try:
+            import sys
+            sys.stderr.write("WARNING: LoginManager not properly attached to app\n")
+            # Force re-init
+            login_manager.init_app(app)
+            login_manager.login_view = 'login'
+        except Exception as e:
+            try:
+                import sys
+                sys.stderr.write(f"WARNING: Failed to re-init login_manager: {e}\n")
+            except Exception:
+                pass
     
     # Ensure tzlocal is available in Jinja templates
     try:
@@ -221,16 +249,19 @@ try:
         pass
     # Register SQLite pragma after app is created
     register_sqlite_pragma()
-    print("✓ Flask app created successfully")
+    try:
+        import sys
+        sys.stderr.write("✓ Flask app created successfully\n")
+    except Exception:
+        print("✓ Flask app created successfully")
 except Exception as e:
     import traceback
     error_msg = f"CRITICAL: App creation failed: {e}\n{traceback.format_exc()}"
-    print(error_msg)
     try:
         import sys
         sys.stderr.write(f"VERCEL_ERROR: {error_msg}\n")
     except Exception:
-        pass
+        print(error_msg)
     # Create minimal error app instead of crashing
     # But still try to create db and login_manager for Vercel compatibility
     try:
@@ -241,6 +272,7 @@ except Exception as e:
         try:
             db.init_app(app)
             login_manager.init_app(app)
+            login_manager.login_view = 'login'
         except Exception:
             pass
     except Exception:
@@ -588,27 +620,62 @@ def ensure_initialized():
             # Ensure we have app context
             if not has_app_context():
                 # This should not happen in a request, but handle it
-                print("Warning: ensure_initialized called without app context")
+                try:
+                    import sys
+                    sys.stderr.write("Warning: ensure_initialized called without app context\n")
+                except Exception:
+                    pass
                 return
-            # Now init_db_and_assets can safely use current_app and db
-            init_db_and_assets()
-            # Ensure extensions are initialized and attached to app
+            
+            # CRITICAL: Ensure extensions are attached FIRST before any other operations
             try:
                 if db is not None:
-                    db.init_app(current_app)
-            except Exception:
-                pass
+                    # Check if SQLAlchemy is already initialized
+                    needs_db_init = True
+                    if hasattr(current_app, 'extensions'):
+                        if 'sqlalchemy' in current_app.extensions:
+                            needs_db_init = False
+                    if needs_db_init:
+                        db.init_app(current_app)
+                        try:
+                            import sys
+                            sys.stderr.write("✓ Database extension initialized\n")
+                        except Exception:
+                            pass
+            except Exception as e:
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Failed to init db: {e}\n")
+                except Exception:
+                    pass
+            
             try:
                 if login_manager is not None and not hasattr(current_app, 'login_manager'):
                     login_manager.init_app(current_app)
                     login_manager.login_view = 'login'
-            except Exception:
-                pass
+                    try:
+                        import sys
+                        sys.stderr.write("✓ Login manager initialized\n")
+                    except Exception:
+                        pass
+            except Exception as e:
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Failed to init login_manager: {e}\n")
+                except Exception:
+                    pass
+            
+            # Now init_db_and_assets can safely use current_app and db
+            init_db_and_assets()
             _initialized = True
         except Exception as e:
-            print(f"Warning: Initialization failed: {e}")
-            import traceback
-            traceback.print_exc()
+            try:
+                import sys
+                sys.stderr.write(f"Warning: Initialization failed: {e}\n")
+                import traceback
+                sys.stderr.write(traceback.format_exc())
+            except Exception:
+                pass
             # Mark as initialized anyway to avoid infinite retry loops
             _initialized = True
 
@@ -645,21 +712,39 @@ if app is not None:
             if login_manager is not None and not hasattr(current_app, 'login_manager'):
                 login_manager.init_app(current_app)
                 login_manager.login_view = 'login'
-        except Exception:
-            # Best-effort attach; detailed errors will be visible in function logs
-            pass
+        except Exception as e:
+            # Log the error but don't crash - this is best-effort
+            try:
+                import sys
+                sys.stderr.write(f"Warning: Failed to attach login_manager in before_request: {e}\n")
+            except Exception:
+                pass
 
 
 @app.route('/')
 def index():
     try:
         ensure_initialized()  # Initialize on first request for Vercel
-        if current_user.is_authenticated:
+        # Safely check authentication status
+        try:
+            from flask_login import current_user
+            is_auth = getattr(current_user, 'is_authenticated', False)
+        except Exception:
+            # If login_manager not ready, assume not authenticated
+            is_auth = False
+        
+        if is_auth:
             return redirect(url_for('dashboard'))
         return redirect(url_for('login'))
     except Exception as e:
         import traceback
-        return f"<h1>Error</h1><pre>{traceback.format_exc()}</pre>", 500
+        error_msg = traceback.format_exc()
+        try:
+            import sys
+            sys.stderr.write(f"ERROR in index route: {error_msg}\n")
+        except Exception:
+            pass
+        return f"<h1>Error</h1><pre>{error_msg}</pre>", 500
 
 
 @app.route('/healthz')
