@@ -53,6 +53,23 @@ vercel
 - `requirements.txt`에 모든 의존성이 포함되어 있는지 확인
 - Python 버전 호환성 확인
 
+### 데이터가 저장되지 않는 문제 (중요)
+
+Vercel 서버리스 환경에서는 로컬 파일시스템이 영구적이지 않습니다. `DATABASE_URL` 이 설정되어 있지 않으면 `/tmp` 경로의 SQLite를 임시로 사용하게 되어, 콜드 스타트(인스턴스 재시작) 시 데이터가 사라집니다.
+
+영구 저장을 위해 다음 중 하나를 사용하세요:
+
+1) PostgreSQL (권장)
+- Neon, Supabase, RDS 등 어떤 PostgreSQL이든 사용 가능
+- Vercel 프로젝트 설정 > Environment Variables 에 `DATABASE_URL` 추가
+  - 예: `postgresql://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require`
+
+2) MySQL
+- 동일하게 `DATABASE_URL` 에 MySQL 커넥션 문자열 설정
+
+설정 후 재배포하면, 서버리스에서도 데이터가 사라지지 않습니다.
+
+
 ## 관리자 계정
 - 아이디: `admin`
 - 비밀번호: `admin123!@#`

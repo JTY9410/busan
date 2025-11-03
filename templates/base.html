@@ -78,6 +78,16 @@
   </nav>
 
   <main class="min-h-screen">
+    {% if ephemeral_db %}
+      <div class="bg-yellow-50 border-b border-yellow-200">
+        <div class="container mx-auto px-4 py-3">
+          <div class="flex items-center text-yellow-800 text-sm">
+            <i class="bi bi-exclamation-triangle-fill mr-2"></i>
+            <span>현재 서버리스 환경에서 임시 SQLite를 사용 중입니다. 콜드 스타트 시 데이터가 사라질 수 있습니다. Vercel 환경 변수에 DATABASE_URL을 설정해 영구 저장소(예: PostgreSQL)를 사용하세요.</span>
+          </div>
+        </div>
+      </div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="container mx-auto px-4 pt-6">

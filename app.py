@@ -160,6 +160,16 @@ def create_app():
                 'poolclass': NullPool,  # Serverless-friendly
                 'connect_args': get_sqlite_connect_args(),
             }
+            # Log a clear warning about ephemeral storage on serverless
+            try:
+                import sys
+                sys.stderr.write(
+                    "WARNING: Using ephemeral SQLite on serverless (/tmp). "
+                    "Data will be lost on cold start. Set DATABASE_URL to a persistent DB.\n"
+                )
+                sys.stderr.write(f"DB_FILE: {tmp_db_path}\n")
+            except Exception:
+                pass
     else:
         # Local development
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
@@ -600,9 +610,19 @@ if app is not None:
     @app.context_processor
     def inject_jinja_globals():
         # Make tzlocal available in Jinja templates
-        return {
-            'tzlocal': tzlocal,
-        }
+        try:
+            using_ephemeral_db = False
+            try:
+                db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+                using_ephemeral_db = bool(is_serverless and db_uri.startswith('sqlite:///'))
+            except Exception:
+                using_ephemeral_db = False
+            return {
+                'tzlocal': tzlocal,
+                'ephemeral_db': using_ephemeral_db,
+            }
+        except Exception:
+            return {'tzlocal': tzlocal}
 
 
 @app.route('/')
