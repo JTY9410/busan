@@ -347,17 +347,32 @@ def _ensure_aware(dt):
 
 
 def ensure_logo():
-    """로고 파일이 없으면 원본에서 복사"""
-    os.makedirs(STATIC_DIR, exist_ok=True)
+    """로고 파일이 없으면 원본에서 복사 - 안전하게 처리"""
+    try:
+        os.makedirs(STATIC_DIR, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        # Cannot create static directory - skip logo setup
+        try:
+            import sys
+            sys.stderr.write(f"Warning: Cannot create static directory: {e}\n")
+        except Exception:
+            pass
+        return
+    
     dst = os.path.join(STATIC_DIR, 'logo.png')
     
     # 이미 존재하고 크기가 0보다 크면 완료
-    if os.path.exists(dst):
-        try:
-            if os.path.getsize(dst) > 0:
+    try:
+        if os.path.exists(dst):
+            file_size = os.path.getsize(dst)
+            if file_size > 0:
                 return
-        except Exception:
-            pass
+    except (OSError, IOError, PermissionError):
+        # Cannot check existing file - will try to copy
+        pass
+    except Exception:
+        # Other errors - skip
+        return
     
     # 원본 로고 파일 경로들 시도
     original_logo_paths = [
@@ -368,46 +383,78 @@ def ensure_logo():
     
     for src in original_logo_paths:
         try:
-            if os.path.exists(src) and os.path.getsize(src) > 0:
-                if is_serverless:
-                    # Vercel 환경에서는 /tmp에 복사 시도
+            # Check if source exists and is readable
+            if not os.path.exists(src):
+                continue
+                
+            try:
+                file_size = os.path.getsize(src)
+                if file_size <= 0:
+                    continue
+            except (OSError, IOError, PermissionError):
+                # Cannot read source file - skip
+                continue
+            
+            # Try to copy
+            if is_serverless:
+                # Vercel 환경에서는 복사 시도 (실패해도 계속)
+                try:
+                    shutil.copy(src, dst)
                     try:
-                        # Vercel에서는 static 디렉토리가 읽기 전용일 수 있으므로
-                        # 원본 경로를 직접 사용하도록 함
-                        # 하지만 static 디렉토리에 복사 시도
-                        shutil.copy(src, dst)
-                        try:
-                            import sys
-                            sys.stderr.write(f"✓ Logo copied from {src} to {dst}\n")
-                        except Exception:
-                            pass
-                        return
-                    except Exception as e:
-                        try:
-                            import sys
-                            sys.stderr.write(f"Warning: Could not copy logo in serverless: {e}\n")
-                        except Exception:
-                            pass
-                        # 원본 파일이 있으면 그대로 사용 (static 디렉토리에서 읽기 시도)
-                        continue
-                else:
-                    # 로컬 환경: 정상 복사
+                        import sys
+                        sys.stderr.write(f"✓ Logo copied from {src} to {dst}\n")
+                    except Exception:
+                        pass
+                    return
+                except (OSError, IOError, PermissionError) as e:
+                    # Cannot write to static in serverless - this is expected
+                    try:
+                        import sys
+                        sys.stderr.write(f"Info: Cannot copy logo in serverless (expected): {e}\n")
+                    except Exception:
+                        pass
+                    # Continue - will serve from source path directly
+                    continue
+                except Exception as e:
+                    # Other errors
+                    try:
+                        import sys
+                        sys.stderr.write(f"Warning: Error copying logo: {e}\n")
+                    except Exception:
+                        pass
+                    continue
+            else:
+                # 로컬 환경: 정상 복사
+                try:
                     shutil.copy(src, dst)
                     return
+                except (OSError, IOError, PermissionError) as e:
+                    try:
+                        import sys
+                        sys.stderr.write(f"Warning: Could not copy logo: {e}\n")
+                    except Exception:
+                        pass
+                    continue
         except Exception as e:
+            # Any other error - log and continue to next path
             try:
                 import sys
-                sys.stderr.write(f"Warning: Failed to copy logo from {src}: {e}\n")
+                sys.stderr.write(f"Warning: Error processing logo path {src}: {e}\n")
             except Exception:
                 pass
             continue
     
-    # 로고 파일이 없으면 빈 파일 생성 (나중에 업로드 가능)
+    # 로고 파일이 없으면 빈 파일 생성 시도 (나중에 업로드 가능)
     if not is_serverless:
         try:
-            with open(dst, 'wb') as f:
-                f.write(b'')
+            try:
+                with open(dst, 'wb') as f:
+                    f.write(b'')
+            except (OSError, IOError, PermissionError):
+                # Cannot create empty file - skip
+                pass
         except Exception:
+            # Any other error - skip
             pass
 
 
@@ -584,7 +631,15 @@ def init_db_and_assets():
     try:
         ensure_logo()
     except Exception as e:
-        print(f"Warning: Logo setup failed: {e}")
+        # Logo setup failure should not crash the app
+        try:
+            import sys
+            sys.stderr.write(f"Warning: Logo setup failed: {e}\n")
+            import traceback
+            sys.stderr.write(traceback.format_exc())
+        except Exception:
+            print(f"Warning: Logo setup failed: {e}")
+        # Continue - logo is not critical for app functionality
         pass
 
     # 스키마 보정: role 컬럼이 없으면 추가 (SQLite만)
@@ -927,43 +982,86 @@ def healthz():
 @app.route('/favicon.ico')
 def favicon():
     """Handle favicon requests - serve logo.png as favicon or return 204"""
-    # Try multiple paths for logo
-    logo_paths = [
-        os.path.join(STATIC_DIR, 'logo.png'),
-        os.path.join(BASE_DIR, 'logo.png'),
-        LOGO_SOURCE_PATH_IN_CONTAINER,
-    ]
-    
-    for logo_path in logo_paths:
+    try:
+        # Try multiple paths for logo
+        logo_paths = [
+            os.path.join(STATIC_DIR, 'logo.png'),
+            os.path.join(BASE_DIR, 'logo.png'),
+            LOGO_SOURCE_PATH_IN_CONTAINER,
+        ]
+        
+        for logo_path in logo_paths:
+            try:
+                if os.path.exists(logo_path):
+                    file_size = os.path.getsize(logo_path)
+                    if file_size > 0:
+                        return send_file(logo_path, mimetype='image/png')
+            except (OSError, IOError, PermissionError) as e:
+                # File system errors - skip this path
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Could not access logo at {logo_path}: {e}\n")
+                except Exception:
+                    pass
+                continue
+            except Exception as e:
+                # Other errors - log and continue
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Error checking logo at {logo_path}: {e}\n")
+                except Exception:
+                    pass
+                continue
+    except Exception as e:
+        # If everything fails, log and return 204 (no content)
         try:
-            if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
-                return send_file(logo_path, mimetype='image/png')
+            import sys
+            sys.stderr.write(f"Warning: favicon route error: {e}\n")
         except Exception:
-            continue
+            pass
     
     return '', 204
 
 @app.route('/static/logo.png')
 def serve_logo():
     """Serve logo.png from static directory or fallback to root"""
-    # Try static directory first, then root
-    logo_paths = [
-        os.path.join(STATIC_DIR, 'logo.png'),
-        os.path.join(BASE_DIR, 'logo.png'),
-        LOGO_SOURCE_PATH_IN_CONTAINER,
-    ]
-    
-    for logo_path in logo_paths:
-        try:
-            if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
-                return send_file(logo_path, mimetype='image/png')
-        except Exception as e:
+    try:
+        # Try static directory first, then root
+        logo_paths = [
+            os.path.join(STATIC_DIR, 'logo.png'),
+            os.path.join(BASE_DIR, 'logo.png'),
+            LOGO_SOURCE_PATH_IN_CONTAINER,
+        ]
+        
+        for logo_path in logo_paths:
             try:
-                import sys
-                sys.stderr.write(f"Warning: Could not serve logo from {logo_path}: {e}\n")
-            except Exception:
-                pass
-            continue
+                if os.path.exists(logo_path):
+                    file_size = os.path.getsize(logo_path)
+                    if file_size > 0:
+                        return send_file(logo_path, mimetype='image/png')
+            except (OSError, IOError, PermissionError) as e:
+                # File system errors - skip this path
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Could not access logo at {logo_path}: {e}\n")
+                except Exception:
+                    pass
+                continue
+            except Exception as e:
+                # Other errors - log and continue
+                try:
+                    import sys
+                    sys.stderr.write(f"Warning: Error checking logo at {logo_path}: {e}\n")
+                except Exception:
+                    pass
+                continue
+    except Exception as e:
+        # If everything fails, log and return 404
+        try:
+            import sys
+            sys.stderr.write(f"Warning: serve_logo route error: {e}\n")
+        except Exception:
+            pass
     
     # If no logo found, return 404
     return '', 404
