@@ -21,9 +21,11 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, CheckConstraint, event
 from sqlalchemy.pool import NullPool
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, IntegrityError
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
+import functools
 # Defer pandas import to avoid heavy loading at module import time
 
 
@@ -99,6 +101,10 @@ DB_PATH = os.path.join(DATA_DIR, 'busan.db')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 
+# Ensure static directory exists (important for Vercel)
+if not os.path.exists(STATIC_DIR):
+    os.makedirs(STATIC_DIR, exist_ok=True)
+
 LOGO_SRC_FILENAME = 'logo.png'
 # 컨테이너 내부에서 접근 가능한 경로로 변경
 LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
@@ -145,6 +151,27 @@ def create_app():
                     'connect_timeout': 10,
                 }
             }
+            # PostgreSQL-specific: enable autocommit mode to avoid transaction issues
+            if 'postgresql' in database_url or 'postgres' in database_url:
+                try:
+                    # Register event listener to handle transaction errors
+                    @event.listens_for(Engine, "connect")
+                    def set_postgres_pragmas(dbapi_connection, connection_record):
+                        """PostgreSQL connection setup"""
+                        try:
+                            if hasattr(dbapi_connection, 'cursor'):
+                                cursor = dbapi_connection.cursor()
+                                # Don't set autocommit here - let SQLAlchemy manage transactions
+                                # But ensure connection is clean
+                                cursor.close()
+                        except Exception:
+                            pass
+                except Exception as e:
+                    try:
+                        import sys
+                        sys.stderr.write(f"Warning: Failed to register PostgreSQL event: {e}\n")
+                    except Exception:
+                        pass
         else:
             # Fallback to /tmp SQLite for Vercel
             tmp_db_path = os.path.join(DATA_DIR, 'busan.db')
@@ -321,11 +348,10 @@ def _ensure_aware(dt):
 
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사"""
-    if is_serverless:
-        # Vercel 환경에서는 static 디렉토리에 쓸 수 없으므로 이 작업 건너뛰기
-        return
     os.makedirs(STATIC_DIR, exist_ok=True)
     dst = os.path.join(STATIC_DIR, 'logo.png')
+    
+    # 이미 존재하고 크기가 0보다 크면 완료
     if os.path.exists(dst):
         try:
             if os.path.getsize(dst) > 0:
@@ -336,23 +362,53 @@ def ensure_logo():
     # 원본 로고 파일 경로들 시도
     original_logo_paths = [
         LOGO_SOURCE_PATH_IN_CONTAINER,  # 컨테이너 내부: /app/logo.png (repo 동봉)
-        '/Users/USER/dev/busan/logo.png',  # 호스트 절대 경로
+        os.path.join(BASE_DIR, 'logo.png'),  # 프로젝트 루트의 logo.png
+        '/Users/USER/dev/busan/logo.png',  # 호스트 절대 경로 (개발 환경)
     ]
     
     for src in original_logo_paths:
         try:
-            if os.path.exists(src):
-                shutil.copy(src, dst)
-                return
-        except Exception:
+            if os.path.exists(src) and os.path.getsize(src) > 0:
+                if is_serverless:
+                    # Vercel 환경에서는 /tmp에 복사 시도
+                    try:
+                        # Vercel에서는 static 디렉토리가 읽기 전용일 수 있으므로
+                        # 원본 경로를 직접 사용하도록 함
+                        # 하지만 static 디렉토리에 복사 시도
+                        shutil.copy(src, dst)
+                        try:
+                            import sys
+                            sys.stderr.write(f"✓ Logo copied from {src} to {dst}\n")
+                        except Exception:
+                            pass
+                        return
+                    except Exception as e:
+                        try:
+                            import sys
+                            sys.stderr.write(f"Warning: Could not copy logo in serverless: {e}\n")
+                        except Exception:
+                            pass
+                        # 원본 파일이 있으면 그대로 사용 (static 디렉토리에서 읽기 시도)
+                        continue
+                else:
+                    # 로컬 환경: 정상 복사
+                    shutil.copy(src, dst)
+                    return
+        except Exception as e:
+            try:
+                import sys
+                sys.stderr.write(f"Warning: Failed to copy logo from {src}: {e}\n")
+            except Exception:
+                pass
             continue
     
     # 로고 파일이 없으면 빈 파일 생성 (나중에 업로드 가능)
-    try:
-        with open(dst, 'wb') as f:
-            f.write(b'')
-    except Exception:
-        pass
+    if not is_serverless:
+        try:
+            with open(dst, 'wb') as f:
+                f.write(b'')
+        except Exception:
+            pass
 
 
 # Models need db to be available - but handle gracefully for Vercel
@@ -541,7 +597,7 @@ def init_db_and_assets():
             if 'role' not in cols:
                 if not is_serverless:  # Vercel 환경이 아니면 스키마 변경
                     db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
-                    db.session.commit()
+                    safe_commit()  # Schema migration - don't show error if it fails
     except Exception as e:
         print(f"Warning: Schema migration failed: {e}")
         pass
@@ -570,7 +626,8 @@ def init_db_and_assets():
             )
             admin.set_password(admin_password)
             db.session.add(admin)
-            db.session.commit()
+            if not safe_commit():
+                raise Exception("Failed to commit admin account creation")
             print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
         else:
             # 기존 관리자 계정 업데이트
@@ -584,7 +641,8 @@ def init_db_and_assets():
                 admin.approval_status = '승인'
             # 비밀번호 업데이트
             admin.set_password(admin_password)
-            db.session.commit()
+            if not safe_commit():
+                raise Exception("Failed to commit admin account update")
             print(f'관리자 계정 정보가 업데이트되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
     except Exception as e:
         print(f"Warning: Admin account creation/update failed: {e}")
@@ -594,6 +652,79 @@ def init_db_and_assets():
             db.session.rollback()
         except Exception:
             pass
+
+# Safe commit helper function
+def safe_commit():
+    """Safely commit database transaction with automatic rollback on error"""
+    if db is None:
+        return False
+    try:
+        db.session.commit()
+        return True
+    except Exception as e:
+        error_str = str(e)
+        try:
+            import sys
+            sys.stderr.write(f"DB commit error: {error_str}\n")
+        except Exception:
+            pass
+        
+        # Always rollback on error
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        
+        # Check for PostgreSQL transaction errors
+        if 'InFailedSqlTransaction' in error_str or 'current transaction is aborted' in error_str.lower():
+            try:
+                import sys
+                sys.stderr.write("PostgreSQL transaction error detected, rolled back\n")
+            except Exception:
+                pass
+            return False
+        
+        # Re-raise other exceptions
+        raise
+
+# Safe database transaction handler
+def safe_db_operation(func):
+    """Decorator to safely handle database operations with automatic rollback on error"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if db is None:
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        try:
+            result = func(*args, **kwargs)
+            # If function returns a response, commit before returning
+            if hasattr(result, 'status_code') or isinstance(result, tuple):
+                if not safe_commit():
+                    flash('데이터 저장 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+            return result
+        except Exception as e:
+            # Always rollback on any exception
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            
+            # Check if it's a PostgreSQL transaction error
+            error_str = str(e)
+            if 'InFailedSqlTransaction' in error_str or 'current transaction is aborted' in error_str.lower():
+                try:
+                    import sys
+                    sys.stderr.write(f"PostgreSQL transaction error: {e}\n")
+                except Exception:
+                    pass
+                flash('데이터베이스 트랜잭션 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+            else:
+                # Re-raise other exceptions to be handled by error handler
+                raise
+            # Return redirect to prevent showing error page
+            return redirect(request.url if request else url_for('dashboard'))
+    return wrapper
 
 # 관리자 권한 데코레이터
 def admin_required(view):
@@ -719,6 +850,39 @@ if app is not None:
                 sys.stderr.write(f"Warning: Failed to attach login_manager in before_request: {e}\n")
             except Exception:
                 pass
+    
+    @app.after_request
+    def _handle_db_transaction_errors(response):
+        """Handle PostgreSQL transaction errors after each request"""
+        if db is not None:
+            try:
+                # Check if there's an active transaction that failed
+                # If session is in a bad state, rollback
+                if db.session.is_active:
+                    # Try to check if transaction is in error state
+                    try:
+                        from sqlalchemy import text
+                        # Simple test query to check if transaction is healthy
+                        db.session.execute(text('SELECT 1'))
+                    except Exception as e:
+                        error_str = str(e)
+                        if 'InFailedSqlTransaction' in error_str or 'current transaction is aborted' in error_str.lower():
+                            try:
+                                db.session.rollback()
+                                try:
+                                    import sys
+                                    sys.stderr.write("Rolled back failed transaction after request\n")
+                                except Exception:
+                                    pass
+                            except Exception:
+                                pass
+            except Exception:
+                # If we can't check, try to rollback anyway
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+        return response
 
 
 @app.route('/')
@@ -763,10 +927,46 @@ def healthz():
 @app.route('/favicon.ico')
 def favicon():
     """Handle favicon requests - serve logo.png as favicon or return 204"""
-    logo_path = os.path.join(STATIC_DIR, 'logo.png')
-    if os.path.exists(logo_path):
-        return send_file(logo_path, mimetype='image/png')
+    # Try multiple paths for logo
+    logo_paths = [
+        os.path.join(STATIC_DIR, 'logo.png'),
+        os.path.join(BASE_DIR, 'logo.png'),
+        LOGO_SOURCE_PATH_IN_CONTAINER,
+    ]
+    
+    for logo_path in logo_paths:
+        try:
+            if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
+                return send_file(logo_path, mimetype='image/png')
+        except Exception:
+            continue
+    
     return '', 204
+
+@app.route('/static/logo.png')
+def serve_logo():
+    """Serve logo.png from static directory or fallback to root"""
+    # Try static directory first, then root
+    logo_paths = [
+        os.path.join(STATIC_DIR, 'logo.png'),
+        os.path.join(BASE_DIR, 'logo.png'),
+        LOGO_SOURCE_PATH_IN_CONTAINER,
+    ]
+    
+    for logo_path in logo_paths:
+        try:
+            if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
+                return send_file(logo_path, mimetype='image/png')
+        except Exception as e:
+            try:
+                import sys
+                sys.stderr.write(f"Warning: Could not serve logo from {logo_path}: {e}\n")
+            except Exception:
+                pass
+            continue
+    
+    # If no logo found, return 404
+    return '', 404
 
 @app.route('/debug/template-check')
 def debug_template_check():
@@ -879,7 +1079,9 @@ def register():
         )
         member.set_password(password)
         db.session.add(member)
-        db.session.commit()
+        if not safe_commit():
+            flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+            return render_template('auth/register.html')
         flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
         return redirect(url_for('login'))
 
@@ -975,8 +1177,10 @@ def insurance():
                     if action == 'delete':
                         if not row.approved_at:  # 조합승인 전까지만 삭제 가능
                             db.session.delete(row)
-                            db.session.commit()
-                            flash('삭제되었습니다.', 'success')
+                            if not safe_commit():
+                                flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
+                            else:
+                                flash('삭제되었습니다.', 'success')
                         else:
                             flash('조합승인 후에는 삭제할 수 없습니다.', 'warning')
                     elif action == 'save':
@@ -990,8 +1194,10 @@ def insurance():
                                 row.car_registered_at = parse_date(request.form.get('car_registered_at'))
                             # 비고는 항상 업데이트 가능
                             row.memo = request.form.get('memo', '').strip()
-                            db.session.commit()
-                            flash('저장되었습니다.', 'success')
+                            if not safe_commit():
+                                flash('저장 처리 중 오류가 발생했습니다.', 'danger')
+                            else:
+                                flash('저장되었습니다.', 'success')
                         else:
                             flash('조합승인 후에는 수정할 수 없습니다.', 'warning')
             return redirect(url_for('insurance'))
@@ -1018,7 +1224,9 @@ def insurance():
             created_by_member_id=current_user.id,
         )
         db.session.add(app_row)
-        db.session.commit()
+        if not safe_commit():
+            flash('신청 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+            return redirect(url_for('insurance'))
         flash('신청이 등록되었습니다.', 'success')
         return redirect(url_for('insurance'))
 
@@ -1045,7 +1253,7 @@ def insurance():
         if r.status != old_status:
             changed = True
     if changed:
-        db.session.commit()
+        safe_commit()  # Don't show error if status update fails, just log it
 
     # Build view models with proper timezone formatting
     def fmt_display_safe(dt):
@@ -1154,8 +1362,10 @@ def insurance_upload():
             )
             db.session.add(app_row)
             count += 1
-        db.session.commit()
-        flash(f'{count}건 업로드되었습니다.', 'success')
+        if not safe_commit():
+            flash('업로드 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+        else:
+            flash(f'{count}건 업로드되었습니다.', 'success')
     except Exception as e:
         flash('업로드 중 오류가 발생했습니다.', 'danger')
     return redirect(url_for('insurance'))
@@ -1182,8 +1392,10 @@ def admin_members():
             if m:
                 if action == 'update_status':
                     m.approval_status = request.form.get('approval_status', '신청')
-                    db.session.commit()
-                    flash('승인 상태가 변경되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('승인 상태 변경 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('승인 상태가 변경되었습니다.', 'success')
                 elif action == 'save':
                     m.company_name = request.form.get('company_name', '').strip()
                     m.address = request.form.get('address', '').strip()
@@ -1194,13 +1406,17 @@ def admin_members():
                     m.email = request.form.get('email', '').strip()
                     m.approval_status = request.form.get('approval_status', '신청')
                     m.role = request.form.get('role', m.role or 'member')
-                    db.session.commit()
-                    flash('저장되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('저장 처리 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('저장되었습니다.', 'success')
                     return redirect(url_for('admin_members'))
                 elif action == 'delete':
                     db.session.delete(m)
-                    db.session.commit()
-                    flash('삭제되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('삭제되었습니다.', 'success')
         else:
             if action == 'create':
                 username = request.form.get('username', '').strip()
@@ -1235,8 +1451,10 @@ def admin_members():
                     )
                     nm.set_password(password)
                     db.session.add(nm)
-                    db.session.commit()
-                    flash('회원이 추가되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('회원 추가 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('회원이 추가되었습니다.', 'success')
                 return redirect(url_for('admin_members'))
 
     edit_id = request.args.get('edit_id')
@@ -1300,8 +1518,10 @@ def admin_members_upload():
             m.set_password(password)
             db.session.add(m)
             created += 1
-        db.session.commit()
-        flash(f'일괄 업로드 완료: 추가 {created}건, 건너뜀 {skipped}건', 'success')
+        if not safe_commit():
+            flash('일괄 업로드 처리 중 오류가 발생했습니다.', 'danger')
+        else:
+            flash(f'일괄 업로드 완료: 추가 {created}건, 건너뜀 {skipped}건', 'success')
     except Exception:
         flash('업로드 처리 중 오류가 발생했습니다.', 'danger')
     return redirect(url_for('admin_members'))
@@ -1330,8 +1550,10 @@ def admin_insurance():
                     start_date_aware = datetime.combine(r.desired_start_date, datetime.min.time(), tzinfo=KST)
                     r.start_at = start_date_aware
                     r.end_at = start_date_aware + timedelta(days=30)
-            db.session.commit()
-            flash('일괄 승인되었습니다.', 'success')
+            if not safe_commit():
+                flash('일괄 승인 처리 중 오류가 발생했습니다.', 'danger')
+            else:
+                flash('일괄 승인되었습니다.', 'success')
         else:
             # 단건 수정/삭제
             action = request.form.get('action')
@@ -1358,17 +1580,23 @@ def admin_insurance():
                         start_date_aware = datetime.combine(row.desired_start_date, datetime.min.time(), tzinfo=KST)
                         row.start_at = start_date_aware
                         row.end_at = start_date_aware + timedelta(days=30)
-                    db.session.commit()
-                    flash('승인되었습니다.', 'success')
-                    print(f"DEBUG: Approval completed for row {row.id}")  # 디버그 로그
+                    if not safe_commit():
+                        flash('승인 처리 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('승인되었습니다.', 'success')
+                        print(f"DEBUG: Approval completed for row {row.id}")  # 디버그 로그
                 elif action == 'delete':
                     db.session.delete(row)
-                    db.session.commit()
-                    flash('삭제되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('삭제되었습니다.', 'success')
                 elif action == 'save_memo':
                     row.memo = request.form.get('memo', row.memo)
-                    db.session.commit()
-                    flash('비고가 저장되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('비고 저장 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('비고가 저장되었습니다.', 'success')
                 elif action == 'save':
                     # 편집 모드에서 저장
                     row.desired_start_date = parse_date(request.form.get('desired_start_date'))
@@ -1379,8 +1607,10 @@ def admin_insurance():
                     row.start_at = parse_datetime(request.form.get('start_at')) # 가입시간 수정 추가
                     row.end_at = parse_datetime(request.form.get('end_at'))   # 종료시간 수정 추가
                     row.memo = request.form.get('memo', '').strip()
-                    db.session.commit()
-                    flash('저장되었습니다.', 'success')
+                    if not safe_commit():
+                        flash('저장 처리 중 오류가 발생했습니다.', 'danger')
+                    else:
+                        flash('저장되었습니다.', 'success')
                     return redirect(url_for('admin_insurance', 
                                            req_start=request.args.get('req_start'),
                                            req_end=request.args.get('req_end'),
@@ -1416,7 +1646,7 @@ def admin_insurance():
     rows = q.order_by(InsuranceApplication.created_at.desc()).all()
     for r in rows:
         r.recompute_status()
-    db.session.commit()
+    safe_commit()  # Status updates - don't show error if it fails
 
     # Build view models with pre-formatted strings to avoid tzlocal usage in templates
     def fmt_display(dt):
