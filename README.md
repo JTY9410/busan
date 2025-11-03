@@ -27,6 +27,24 @@ docker run -p 5000:5000 -v $(pwd):/app busan-insurance
 - `vercel.json`과 `api/index.py`가 포함되어 있습니다.
 - Vercel Project 생성 후 Python Runtime로 배포하세요.
 
+**유용한 Vercel 명령어:**
+```bash
+# 프로덕션 배포
+vercel --prod
+
+# 배포 목록 확인
+vercel ls
+
+# 최근 배포 로그 확인
+vercel logs
+
+# 대시보드 열기 (macOS)
+./vercel-open.sh
+
+# 또는 직접 브라우저에서 접속
+# https://vercel.com/dashboard
+```
+
 ### 기능 요약
 - 회원가입(관리자 승인 후 로그인 가능)
 - 대시보드/약관 페이지
