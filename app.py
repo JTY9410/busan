@@ -101,9 +101,17 @@ DB_PATH = os.path.join(DATA_DIR, 'busan.db')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 
-# Ensure static directory exists (important for Vercel)
-if not os.path.exists(STATIC_DIR):
-    os.makedirs(STATIC_DIR, exist_ok=True)
+# Ensure static directory exists (skip in serverless/read-only environments)
+# In Vercel, /var/task is read-only, so we cannot create directories there
+# Static files should be served from the project directory directly
+if not is_serverless:
+    # Only try to create static directory in non-serverless environments
+    try:
+        if not os.path.exists(STATIC_DIR):
+            os.makedirs(STATIC_DIR, exist_ok=True)
+    except (OSError, PermissionError):
+        # If we can't create it, that's okay - static files may already exist
+        pass
 
 LOGO_SRC_FILENAME = 'logo.png'
 # 컨테이너 내부에서 접근 가능한 경로로 변경
@@ -118,16 +126,32 @@ else:
     os.makedirs(INSTANCE_DIR, exist_ok=True)  # 로컬에서도 만들어두는 편이 안전
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    os.makedirs(STATIC_DIR, exist_ok=True)
+    # STATIC_DIR is already created above (if not serverless)
+    # Only create if not already created
+    try:
+        if not os.path.exists(STATIC_DIR):
+            os.makedirs(STATIC_DIR, exist_ok=True)
+    except (OSError, PermissionError):
+        pass
 
 
 
 def create_app():
     # Use instance_path for Vercel compatibility
     instance_path = INSTANCE_DIR if is_serverless else None
+    
+    # In serverless (Vercel), static files are served directly by Vercel
+    # We should not set static_folder to a read-only path
+    # Flask will use the default 'static' folder relative to the app root
+    if is_serverless:
+        # Check if static directory exists (read-only check)
+        static_folder = STATIC_DIR if os.path.exists(STATIC_DIR) else None
+    else:
+        static_folder = STATIC_DIR
+    
     app = Flask(__name__, 
                 template_folder=TEMPLATE_DIR, 
-                static_folder=STATIC_DIR,
+                static_folder=static_folder,
                 instance_path=instance_path)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
     
