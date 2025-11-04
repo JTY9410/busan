@@ -55,3 +55,27 @@ README.md
 .coverage
 htmlcov/
 
+# Node.js (Vercel 전용)
+node_modules/
+package.json
+package-lock.json
+
+# 불필요한 스크립트
+check-template.sh
+deploy.sh
+fix-and-rebuild.sh
+force-rebuild.sh
+restart.sh
+vercel-open.sh
+
+# Vercel 전용 파일
+vercel.json
+api/
+
+# 문서 파일 (이미 *.md로 제외됨)
+# FUNCTION_INVOCATION_FAILED_FIX.md
+# VERCEL_DEPLOY.md
+# VERCEL_ISSUBCLASS_ERROR.md
+# DOCKER_UPLOAD.md
+# DOCKER.md
+

@@ -113,7 +113,7 @@ if not is_serverless:
         # If we can't create it, that's okay - static files may already exist
         pass
 
-LOGO_SRC_FILENAME = 'logo.png'
+LOGO_SRC_FILENAME = 'logoh.png'
 # 컨테이너 내부에서 접근 가능한 경로로 변경
 LOGO_SOURCE_PATH_IN_CONTAINER = os.path.join(BASE_DIR, LOGO_SRC_FILENAME)
 
@@ -383,7 +383,7 @@ def ensure_logo():
             pass
         return
     
-    dst = os.path.join(STATIC_DIR, 'logo.png')
+    dst = os.path.join(STATIC_DIR, 'logoh.png')
     
     # 이미 존재하고 크기가 0보다 크면 완료
     try:
@@ -400,9 +400,9 @@ def ensure_logo():
     
     # 원본 로고 파일 경로들 시도
     original_logo_paths = [
-        LOGO_SOURCE_PATH_IN_CONTAINER,  # 컨테이너 내부: /app/logo.png (repo 동봉)
-        os.path.join(BASE_DIR, 'logo.png'),  # 프로젝트 루트의 logo.png
-        '/Users/USER/dev/busan/logo.png',  # 호스트 절대 경로 (개발 환경)
+        LOGO_SOURCE_PATH_IN_CONTAINER,  # 컨테이너 내부: /app/logoh.png (repo 동봉)
+        os.path.join(BASE_DIR, 'logoh.png'),  # 프로젝트 루트의 logoh.png
+        '/Users/USER/dev/busan/logoh.png',  # 호스트 절대 경로 (개발 환경)
     ]
     
     for src in original_logo_paths:
@@ -489,7 +489,7 @@ _model_classes_defined = False
 
 def define_models():
     """Define SQLAlchemy models - called once when db is available"""
-    global Member, InsuranceApplication, _model_classes_defined
+    global PartnerGroup, AdminUser, Member, InsuranceApplication, _model_classes_defined
     
     if _model_classes_defined or db is None:
         return
@@ -497,13 +497,49 @@ def define_models():
     try:
         ModelBase = db.Model
         
-        class Member(UserMixin, ModelBase):
+        class PartnerGroup(ModelBase):
+            """파트너그룹 모델"""
+            id = db.Column(db.Integer, primary_key=True)
+            name = db.Column(db.String(255), nullable=False)  # 파트너그룹명(상호)
+            business_number = db.Column(db.String(64), unique=True, nullable=False)  # 사업자등록번호
+            representative = db.Column(db.String(128), nullable=False)  # 대표자
+            phone = db.Column(db.String(64), nullable=False)  # 유선번호
+            mobile = db.Column(db.String(64))  # 휴대폰번호
+            address = db.Column(db.String(255))  # 주소
+            registration_cert_path = db.Column(db.String(512))  # 사업자등록증 첨부
+            logo_path = db.Column(db.String(512))  # 사업장로고 첨부
+            memo = db.Column(db.String(255))  # 비고
+            created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
+            
+            __table_args__ = (
+                Index('idx_partner_group_created_at', 'created_at'),
+                Index('idx_partner_group_business_number', 'business_number'),
+            )
+            
+            # Relationships
+            members = db.relationship('Member', backref='partner_group', lazy='dynamic', cascade='all, delete-orphan')
+            insurance_applications = db.relationship('InsuranceApplication', backref='partner_group', lazy='dynamic', cascade='all, delete-orphan')
+        
+        class AdminUser(UserMixin, ModelBase):
+            """총괄관리자 모델"""
             id = db.Column(db.Integer, primary_key=True)
             username = db.Column(db.String(120), unique=True, nullable=False)
             password_hash = db.Column(db.String(255), nullable=False)
+            created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
+            
+            def set_password(self, password: str) -> None:
+                self.password_hash = generate_password_hash(password)
+
+            def check_password(self, password: str) -> bool:
+                return check_password_hash(self.password_hash, password)
+        
+        class Member(UserMixin, ModelBase):
+            id = db.Column(db.Integer, primary_key=True)
+            username = db.Column(db.String(120), nullable=False)  # unique 제거 (파트너그룹별로 중복 가능)
+            password_hash = db.Column(db.String(255), nullable=False)
             company_name = db.Column(db.String(255))
             address = db.Column(db.String(255))
-            business_number = db.Column(db.String(64), unique=True)
+            business_number = db.Column(db.String(64))  # unique 제거 (파트너그룹별로 중복 가능)
             corporation_number = db.Column(db.String(64))
             representative = db.Column(db.String(128))
             phone = db.Column(db.String(64))
@@ -512,10 +548,13 @@ def define_models():
             registration_cert_path = db.Column(db.String(512))
             approval_status = db.Column(db.String(32), default='신청')  # 신청, 승인중, 승인
             role = db.Column(db.String(32), default='member')  # member, admin
+            partner_group_id = db.Column(db.Integer, db.ForeignKey('partner_group.id'), nullable=True)  # 파트너그룹 관계
             created_at = db.Column(db.DateTime, default=lambda: datetime.now(KST))
             
             __table_args__ = (
                 Index('idx_member_created_at', 'created_at'),
+                Index('idx_member_partner_group', 'partner_group_id'),
+                Index('idx_member_username_partner', 'username', 'partner_group_id'),  # 파트너그룹별 unique
                 CheckConstraint("approval_status IN ('신청','승인중','승인')", name='ck_member_approval_status'),
                 CheckConstraint("role IN ('member','admin')", name='ck_member_role'),
             )
@@ -545,9 +584,11 @@ def define_models():
             insurance_policy_path = db.Column(db.String(512))  # 보험증권 파일 경로 (로컬 저장)
             insurance_policy_url = db.Column(db.String(512))  # 보험증권 URL (외부 링크)
             created_by_member_id = db.Column(db.Integer, db.ForeignKey('member.id'))
+            partner_group_id = db.Column(db.Integer, db.ForeignKey('partner_group.id'), nullable=True)  # 파트너그룹 관계
 
             __table_args__ = (
                 Index('idx_ins_app_created_by', 'created_by_member_id'),
+                Index('idx_ins_app_partner_group', 'partner_group_id'),
                 Index('idx_ins_app_desired', 'desired_start_date'),
                 Index('idx_ins_app_created', 'created_at'),
                 Index('idx_ins_app_approved', 'approved_at'),
@@ -578,7 +619,7 @@ def define_models():
                     self.status = '종료'
         
         _model_classes_defined = True
-        print("✓ Models defined successfully")
+        print("✓ Models defined successfully (with PartnerGroup and AdminUser)")
     except Exception as e:
         print(f"✗ Model definition failed: {e}")
         import traceback
@@ -619,7 +660,19 @@ def load_user(user_id):
             except Exception:
                 pass
         if _model_classes_defined:
-            return db.session.get(Member, int(user_id))
+            # 먼저 AdminUser에서 찾기 (총괄관리자)
+            try:
+                admin_user = db.session.get(AdminUser, int(user_id))
+                if admin_user:
+                    return admin_user
+            except Exception:
+                pass
+            
+            # 그 다음 Member에서 찾기 (일반 사용자)
+            try:
+                return db.session.get(Member, int(user_id))
+            except Exception:
+                pass
         return None
     except Exception:
         return None
@@ -703,6 +756,28 @@ def init_db_and_assets():
                         print("Added insurance_policy_url column to insurance_application table")
                     except Exception as e:
                         print(f"Warning: Failed to add insurance_policy_url: {e}")
+            
+            # Member 테이블: partner_group_id 컬럼 추가 (SQLite)
+            if 'partner_group_id' not in cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE member ADD COLUMN partner_group_id INTEGER"))
+                        safe_commit()
+                        print("Added partner_group_id column to member table")
+                    except Exception as e:
+                        print(f"Warning: Failed to add partner_group_id to member: {e}")
+            
+            # InsuranceApplication 테이블: partner_group_id 컬럼 추가 (SQLite)
+            res = db.session.execute(text("PRAGMA table_info(insurance_application)"))
+            cols = [r[1] for r in res.fetchall()]
+            if 'partner_group_id' not in cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN partner_group_id INTEGER"))
+                        safe_commit()
+                        print("Added partner_group_id column to insurance_application table")
+                    except Exception as e:
+                        print(f"Warning: Failed to add partner_group_id to insurance_application: {e}")
         elif 'postgresql' in db_uri or 'postgres' in db_uri:
             # PostgreSQL: 컬럼 존재 여부 확인 후 추가
             inspector = inspect(db.engine)
@@ -738,6 +813,26 @@ def init_db_and_assets():
                         print("Added insurance_policy_url column to insurance_application table (PostgreSQL)")
                     except Exception as e:
                         print(f"Warning: Failed to add insurance_policy_url: {e}")
+            
+            # Member 테이블: partner_group_id 컬럼 추가 (PostgreSQL)
+            if 'partner_group_id' not in member_cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE member ADD COLUMN partner_group_id INTEGER"))
+                        safe_commit()
+                        print("Added partner_group_id column to member table (PostgreSQL)")
+                    except Exception as e:
+                        print(f"Warning: Failed to add partner_group_id to member: {e}")
+            
+            # InsuranceApplication 테이블: partner_group_id 컬럼 추가 (PostgreSQL)
+            if 'partner_group_id' not in ins_app_cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN partner_group_id INTEGER"))
+                        safe_commit()
+                        print("Added partner_group_id column to insurance_application table (PostgreSQL)")
+                    except Exception as e:
+                        print(f"Warning: Failed to add partner_group_id to insurance_application: {e}")
     except Exception as e:
         print(f"Warning: Schema migration failed: {e}")
         import traceback
@@ -885,6 +980,44 @@ def init_db_and_assets():
             db.session.rollback()
         except Exception:
             pass
+    
+    # 총괄관리자 계정 생성/업데이트
+    try:
+        super_admin_username = 'insurance'
+        super_admin_password = '#wecar1004'
+        
+        # AdminUser 테이블이 있는지 확인
+        try:
+            super_admin = db.session.query(AdminUser).filter(AdminUser.username == super_admin_username).first()
+            
+            if not super_admin:
+                # 새 총괄관리자 계정 생성
+                super_admin = AdminUser(
+                    username=super_admin_username,
+                )
+                super_admin.set_password(super_admin_password)
+                db.session.add(super_admin)
+                if not safe_commit():
+                    raise Exception("Failed to commit super admin account creation")
+                print(f'총괄관리자 계정이 생성되었습니다. 아이디: {super_admin_username}, 비밀번호: {super_admin_password}')
+            else:
+                # 기존 총괄관리자 계정 비밀번호 업데이트
+                super_admin.set_password(super_admin_password)
+                if not safe_commit():
+                    raise Exception("Failed to commit super admin account update")
+                print(f'총괄관리자 계정 정보가 업데이트되었습니다. 아이디: {super_admin_username}, 비밀번호: {super_admin_password}')
+        except Exception as e:
+            # AdminUser 테이블이 아직 생성되지 않았을 수 있음 (첫 실행 시)
+            print(f"Warning: Super admin account creation skipped (table may not exist yet): {e}")
+            pass
+    except Exception as e:
+        print(f"Warning: Super admin account creation/update failed: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 # Safe commit helper function
 def safe_commit():
@@ -993,6 +1126,59 @@ def admin_required(view):
                 pass
             flash('권한 확인 중 오류가 발생했습니다.', 'danger')
             return redirect(url_for('dashboard'))
+    return wrapped
+
+# 총괄관리자 권한 데코레이터
+def super_admin_required(view):
+    from functools import wraps
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        try:
+            # Safely check authentication
+            is_auth = False
+            try:
+                is_auth = getattr(current_user, 'is_authenticated', False)
+            except Exception:
+                pass
+            
+            if not is_auth:
+                flash('로그인이 필요합니다.', 'warning')
+                return redirect(url_for('login'))
+            
+            # Check if super admin (AdminUser) or session flag
+            is_super = False
+            try:
+                # Check if current_user is AdminUser instance
+                if hasattr(current_user, '__class__'):
+                    from flask_login import UserMixin
+                    # AdminUser는 UserMixin을 상속하지만, Member와는 다른 클래스
+                    # 세션 플래그로 확인
+                    is_super = session.get('is_super_admin', False)
+                    # 또는 AdminUser 테이블에 존재하는지 확인
+                    if not is_super and db is not None:
+                        try:
+                            admin_user = db.session.query(AdminUser).filter_by(id=current_user.id).first()
+                            if admin_user:
+                                is_super = True
+                                session['is_super_admin'] = True
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            
+            if not is_super:
+                flash('총괄관리자만 접근 가능합니다.', 'warning')
+                return redirect(url_for('dashboard'))
+            
+            return view(*args, **kwargs)
+        except Exception as e:
+            try:
+                import sys
+                sys.stderr.write(f"Error in super_admin_required decorator: {e}\n")
+            except Exception:
+                pass
+            flash('권한 확인 중 오류가 발생했습니다.', 'danger')
+            return redirect(url_for('login'))
     return wrapped
 
 
@@ -1184,12 +1370,12 @@ def healthz():
 
 @app.route('/favicon.ico')
 def favicon():
-    """Handle favicon requests - serve logo.png as favicon or return 204"""
+    """Handle favicon requests - serve logoh.png as favicon or return 204"""
     try:
         # Try multiple paths for logo
         logo_paths = [
-            os.path.join(STATIC_DIR, 'logo.png'),
-            os.path.join(BASE_DIR, 'logo.png'),
+            os.path.join(STATIC_DIR, 'logoh.png'),
+            os.path.join(BASE_DIR, 'logoh.png'),
             LOGO_SOURCE_PATH_IN_CONTAINER,
         ]
         
@@ -1225,14 +1411,15 @@ def favicon():
     
     return '', 204
 
-@app.route('/static/logo.png')
+@app.route('/static/logoh.png')
+@app.route('/static/logo.png')  # 하위 호환성을 위해 유지
 def serve_logo():
-    """Serve logo.png from static directory or fallback to root"""
+    """Serve logoh.png from static directory or fallback to root"""
     try:
         # Try static directory first, then root
         logo_paths = [
-            os.path.join(STATIC_DIR, 'logo.png'),
-            os.path.join(BASE_DIR, 'logo.png'),
+            os.path.join(STATIC_DIR, 'logoh.png'),
+            os.path.join(BASE_DIR, 'logoh.png'),
             LOGO_SOURCE_PATH_IN_CONTAINER,
         ]
         
@@ -1357,16 +1544,42 @@ def debug_template_check():
 
 
 @app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/login/<int:partner_id>', methods=['GET', 'POST'])
+def login(partner_id=None):
     try:
         ensure_initialized()  # Initialize on first request for Vercel
+        
+        # 파트너그룹 정보 가져오기
+        partner_group = None
+        partner_group_id = partner_id or request.args.get('partner_id', type=int)
+        
+        if db is not None and partner_group_id:
+            try:
+                partner_group = db.session.get(PartnerGroup, partner_group_id)
+            except Exception:
+                pass
+        
+        # GET 요청: 로그인 페이지 표시
+        if request.method == 'GET':
+            return render_template('auth/login.html', partner_group=partner_group)
+        
+        # POST 요청: 로그인 처리
         if request.method == 'POST':
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '')
+            form_partner_id = request.form.get('partner_id', type=int)
+            
+            # 폼에서 파트너그룹 ID를 받았으면 사용
+            if form_partner_id:
+                partner_group_id = form_partner_id
+                try:
+                    partner_group = db.session.get(PartnerGroup, partner_group_id)
+                except Exception:
+                    pass
             
             if not username or not password:
                 flash('아이디와 비밀번호를 입력해주세요.', 'warning')
-                return render_template('auth/login.html')
+                return render_template('auth/login.html', partner_group=partner_group)
             
             if db is None:
                 try:
@@ -1391,9 +1604,29 @@ def login():
                 return render_template('auth/login.html')
             
             try:
+                # 먼저 총괄관리자 계정인지 확인
+                try:
+                    super_admin = db.session.query(AdminUser).filter_by(username=username).first()
+                    if super_admin and super_admin.check_password(password):
+                        # 총괄관리자 로그인 - 세션에 총괄관리자 플래그 설정
+                        login_user(super_admin)
+                        session['is_super_admin'] = True
+                        return redirect(url_for('super_dashboard'))
+                except Exception:
+                    # AdminUser 테이블이 없거나 쿼리 실패 시 무시하고 일반 사용자 로그인 시도
+                    pass
+                
+                # 일반 사용자 로그인 처리
                 # Query user with error handling
                 try:
-                    user = db.session.query(Member).filter_by(username=username).first()
+                    # 파트너그룹이 지정된 경우 해당 파트너그룹의 사용자만 조회
+                    if partner_group_id:
+                        user = db.session.query(Member).filter_by(
+                            username=username,
+                            partner_group_id=partner_group_id
+                        ).first()
+                    else:
+                        user = db.session.query(Member).filter_by(username=username).first()
                 except Exception as query_err:
                     try:
                         import sys
@@ -1405,7 +1638,13 @@ def login():
                     # Try to rollback and retry
                     try:
                         db.session.rollback()
-                        user = db.session.query(Member).filter_by(username=username).first()
+                        if partner_group_id:
+                            user = db.session.query(Member).filter_by(
+                                username=username,
+                                partner_group_id=partner_group_id
+                            ).first()
+                        else:
+                            user = db.session.query(Member).filter_by(username=username).first()
                     except Exception as retry_err:
                         try:
                             import sys
@@ -1413,7 +1652,7 @@ def login():
                         except Exception:
                             pass
                         flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                        return render_template('auth/login.html')
+                        return render_template('auth/login.html', partner_group=partner_group)
                 
                 if user:
                     # Check password with error handling
@@ -1426,14 +1665,21 @@ def login():
                         except Exception:
                             pass
                         flash('비밀번호 확인 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                        return render_template('auth/login.html')
+                        return render_template('auth/login.html', partner_group=partner_group)
                     
                     if password_valid:
+                        # 파트너그룹이 지정된 경우 사용자의 파트너그룹 확인
+                        if partner_group_id and user.partner_group_id != partner_group_id:
+                            flash('해당 파트너그룹의 계정이 아닙니다.', 'danger')
+                            return render_template('auth/login.html', partner_group=partner_group)
+                        
                         # Check approval status
                         try:
                             approval_status = getattr(user, 'approval_status', None)
                             if approval_status != '승인':
                                 flash('관리자 승인 후 로그인 가능합니다.', 'warning')
+                                if partner_group_id:
+                                    return redirect(url_for('login', partner_id=partner_group_id))
                                 return redirect(url_for('login'))
                             
                             # Login user
@@ -1447,7 +1693,7 @@ def login():
                                 except Exception:
                                     pass
                                 flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                                return render_template('auth/login.html')
+                                return render_template('auth/login.html', partner_group=partner_group)
                         except Exception as status_err:
                             try:
                                 import sys
@@ -1455,11 +1701,13 @@ def login():
                             except Exception:
                                 pass
                             flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                            return render_template('auth/login.html')
+                            return render_template('auth/login.html', partner_group=partner_group)
                     else:
                         flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
                 else:
                     flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+                
+                return render_template('auth/login.html', partner_group=partner_group)
                     
             except Exception as e:
                 try:
@@ -1470,8 +1718,9 @@ def login():
                 except Exception:
                     pass
                 flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                return render_template('auth/login.html', partner_group=partner_group)
         
-        return render_template('auth/login.html')
+        return render_template('auth/login.html', partner_group=partner_group)
     except Exception as e:
         try:
             import sys
@@ -1495,10 +1744,34 @@ def logout():
 
 
 @app.route('/register', methods=['GET', 'POST'])
-def register():
+@app.route('/register/<int:partner_id>', methods=['GET', 'POST'])
+def register(partner_id=None):
     try:
         ensure_initialized()  # Initialize on first request for Vercel
+        
+        # 파트너그룹 정보 가져오기
+        partner_group = None
+        partner_group_id = partner_id or request.args.get('partner_id', type=int)
+        
+        if db is not None and partner_group_id:
+            try:
+                partner_group = db.session.get(PartnerGroup, partner_group_id)
+            except Exception:
+                pass
+        
+        # GET 요청: 회원가입 페이지 표시
+        if request.method == 'GET':
+            return render_template('auth/register.html', partner_group=partner_group)
+        
+        # POST 요청: 회원가입 처리
         if request.method == 'POST':
+            form_partner_id = request.form.get('partner_id', type=int)
+            if form_partner_id:
+                partner_group_id = form_partner_id
+                try:
+                    partner_group = db.session.get(PartnerGroup, partner_group_id)
+                except Exception:
+                    pass
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '')
             company_name = request.form.get('company_name', '').strip()
@@ -1515,15 +1788,22 @@ def register():
                 return render_template('auth/register.html')
             
             try:
-                # Check for duplicate username
-                if db.session.query(Member).filter_by(username=username).first():
+                # Check for duplicate username (파트너그룹별로 중복 확인)
+                query = db.session.query(Member).filter_by(username=username)
+                if partner_group_id:
+                    query = query.filter_by(partner_group_id=partner_group_id)
+                if query.first():
                     flash('이미 존재하는 아이디입니다.', 'danger')
-                    return render_template('auth/register.html')
+                    return render_template('auth/register.html', partner_group=partner_group)
                 
-                # Check for duplicate business number
-                if business_number and db.session.query(Member).filter_by(business_number=business_number).first():
-                    flash('이미 등록된 사업자번호입니다.', 'danger')
-                    return render_template('auth/register.html')
+                # Check for duplicate business number (파트너그룹별로 중복 확인)
+                if business_number:
+                    query = db.session.query(Member).filter_by(business_number=business_number)
+                    if partner_group_id:
+                        query = query.filter_by(partner_group_id=partner_group_id)
+                    if query.first():
+                        flash('이미 등록된 사업자번호입니다.', 'danger')
+                        return render_template('auth/register.html', partner_group=partner_group)
             except Exception as e:
                 try:
                     import sys
@@ -1568,13 +1848,16 @@ def register():
                     email=email,
                     registration_cert_path=registration_cert_path,
                     approval_status='신청',
+                    partner_group_id=partner_group_id,
                 )
                 member.set_password(password)
                 db.session.add(member)
                 if not safe_commit():
                     flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                    return render_template('auth/register.html')
+                    return render_template('auth/register.html', partner_group=partner_group)
                 flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
+                if partner_group_id:
+                    return redirect(url_for('login', partner_id=partner_group_id))
                 return redirect(url_for('login'))
             except Exception as e:
                 try:
@@ -1583,9 +1866,9 @@ def register():
                 except Exception:
                     pass
                 flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                return render_template('auth/register.html')
+                return render_template('auth/register.html', partner_group=partner_group)
 
-        return render_template('auth/register.html')
+        return render_template('auth/register.html', partner_group=partner_group)
     except Exception as e:
         try:
             import sys
@@ -1623,13 +1906,47 @@ def dashboard():
 
 
 @app.route('/uploads/<filename>')
-@login_required
 def uploaded_file(filename):
     """업로드된 파일 제공"""
-    if is_serverless:
-        flash('Vercel 환경에서는 파일 제공이 제한됩니다.', 'warning')
-        return redirect(url_for('dashboard'))
-    return send_file(os.path.join(UPLOAD_DIR, filename))
+    try:
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            # 파일 확장자에 따라 MIME 타입 결정
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            mimetype_map = {
+                'pdf': 'application/pdf',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+            }
+            mimetype = mimetype_map.get(ext, 'application/octet-stream')
+            return send_file(file_path, mimetype=mimetype)
+        else:
+            # 파일이 없으면 기본 로고로 폴백
+            fallback_paths = [
+                os.path.join(STATIC_DIR, 'logoh.png'),
+                os.path.join(BASE_DIR, 'logoh.png'),
+                LOGO_SOURCE_PATH_IN_CONTAINER,
+            ]
+            for fallback_path in fallback_paths:
+                if os.path.exists(fallback_path) and os.path.isfile(fallback_path):
+                    return send_file(fallback_path, mimetype='image/png')
+            return 'File not found', 404
+    except Exception as e:
+        try:
+            import sys
+            sys.stderr.write(f"Error serving uploaded file {filename}: {e}\n")
+        except Exception:
+            pass
+        # 에러 발생 시 기본 로고로 폴백
+        try:
+            fallback_path = os.path.join(BASE_DIR, 'logoh.png')
+            if os.path.exists(fallback_path):
+                return send_file(fallback_path, mimetype='image/png')
+        except Exception:
+            pass
+        return 'Error serving file', 500
 
 
 @app.route('/terms')
@@ -1737,6 +2054,11 @@ def insurance():
         car_registered_at = parse_date(request.form.get('car_registered_at'))
         memo = request.form.get('memo', '').strip()
 
+        # 현재 사용자의 partner_group_id 가져오기
+        partner_group_id = None
+        if hasattr(current_user, 'partner_group_id'):
+            partner_group_id = current_user.partner_group_id
+        
         app_row = InsuranceApplication(
             desired_start_date=desired_start_date,
             insured_code=current_user.business_number or '',
@@ -1749,6 +2071,7 @@ def insurance():
             status='신청',
             memo=memo,
             created_by_member_id=current_user.id,
+            partner_group_id=partner_group_id,
         )
         db.session.add(app_row)
         if not safe_commit():
@@ -1765,7 +2088,16 @@ def insurance():
     if db is None:
         flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
         return redirect(url_for('dashboard'))
+    
+    # 현재 사용자의 partner_group_id 가져오기
+    partner_group_id = None
+    if hasattr(current_user, 'partner_group_id'):
+        partner_group_id = current_user.partner_group_id
+    
+    # 파트너그룹별 필터링 (본인 소유 데이터만)
     q = db.session.query(InsuranceApplication).filter_by(created_by_member_id=current_user.id)
+    if partner_group_id:
+        q = q.filter_by(partner_group_id=partner_group_id)
     if start_date:
         q = q.filter(InsuranceApplication.desired_start_date >= start_date)
     if end_date:
@@ -2065,9 +2397,17 @@ def admin_insurance():
             if db is None:
                 flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
                 return redirect(url_for('admin_insurance'))
-            rows = db.session.query(InsuranceApplication).filter(
+            # 현재 관리자의 partner_group_id 가져오기
+            partner_group_id = None
+            if hasattr(current_user, 'partner_group_id'):
+                partner_group_id = current_user.partner_group_id
+            
+            query = db.session.query(InsuranceApplication).filter(
                 (InsuranceApplication.approved_at.is_(None))
-            ).all()
+            )
+            if partner_group_id:
+                query = query.filter_by(partner_group_id=partner_group_id)
+            rows = query.all()
             now = datetime.now(KST)
             for r in rows:
                 r.approved_at = now
@@ -2161,7 +2501,15 @@ def admin_insurance():
     if db is None:
         flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
         return redirect(url_for('dashboard'))
+    
+    # 현재 관리자의 partner_group_id 가져오기
+    partner_group_id = None
+    if hasattr(current_user, 'partner_group_id'):
+        partner_group_id = current_user.partner_group_id
+    
     q = db.session.query(InsuranceApplication)
+    if partner_group_id:
+        q = q.filter_by(partner_group_id=partner_group_id)
     if req_start:
         q = q.filter(InsuranceApplication.created_at >= datetime.combine(req_start, datetime.min.time(), tzinfo=KST))
     if req_end:
@@ -2248,7 +2596,15 @@ def admin_insurance_download():
         flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
         return redirect(url_for('admin_insurance'))
     # Export to Excel
-    rows = db.session.query(InsuranceApplication).order_by(InsuranceApplication.created_at.desc()).all()
+    # 현재 관리자의 partner_group_id 가져오기
+    partner_group_id = None
+    if hasattr(current_user, 'partner_group_id'):
+        partner_group_id = current_user.partner_group_id
+    
+    query = db.session.query(InsuranceApplication)
+    if partner_group_id:
+        query = query.filter_by(partner_group_id=partner_group_id)
+    rows = query.order_by(InsuranceApplication.created_at.desc()).all()
     data = []
     for r in rows:
         data.append({
@@ -2299,11 +2655,20 @@ def admin_settlement():
     if db is None:
         flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
         return redirect(url_for('admin_settlement'))
-    rows = db.session.query(InsuranceApplication).filter(
+    
+    # 현재 관리자의 partner_group_id 가져오기
+    partner_group_id = None
+    if hasattr(current_user, 'partner_group_id'):
+        partner_group_id = current_user.partner_group_id
+    
+    query = db.session.query(InsuranceApplication).filter(
         InsuranceApplication.start_at.is_not(None),
         InsuranceApplication.start_at >= start_period,
         InsuranceApplication.start_at < next_month,
-    ).all()
+    )
+    if partner_group_id:
+        query = query.filter_by(partner_group_id=partner_group_id)
+    rows = query.all()
 
     # 그룹핑: 상사별 건수/금액
     by_company = {}
@@ -2495,6 +2860,483 @@ def handle_unexpected_error(e):
         return f"<h1>서버 오류</h1><p>오류가 발생했습니다: {error_type}</p>", 500
     except Exception:
         return ("서버 오류가 발생했습니다.", 500)
+
+
+# ============================================================================
+# 상위 프로그램 라우트 (총괄관리자)
+# ============================================================================
+
+@app.route('/super/dashboard')
+@login_required
+@super_admin_required
+def super_dashboard():
+    """총괄관리자 대시보드"""
+    ensure_initialized()
+    return render_template('super/dashboard.html')
+
+
+@app.route('/super/partner-groups', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def super_partner_groups():
+    """파트너그룹 관리"""
+    ensure_initialized()
+    
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('super_dashboard'))
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        partner_id = request.form.get('partner_id')
+        
+        if action == 'create':
+            # 신규 파트너그룹 생성
+            name = request.form.get('name', '').strip()
+            business_number = request.form.get('business_number', '').strip()
+            representative = request.form.get('representative', '').strip()
+            phone = request.form.get('phone', '').strip()
+            mobile = request.form.get('mobile', '').strip()
+            address = request.form.get('address', '').strip()
+            memo = request.form.get('memo', '').strip()
+            
+            # 필수 항목 확인
+            if not name or not business_number or not representative or not phone:
+                flash('필수 항목(파트너그룹명, 사업자등록번호, 대표자, 유선번호)을 모두 입력해주세요.', 'warning')
+                return redirect(url_for('super_partner_groups'))
+            
+            # 사업자등록번호 중복 확인
+            existing = db.session.query(PartnerGroup).filter_by(business_number=business_number).first()
+            if existing:
+                flash('이미 등록된 사업자등록번호입니다.', 'danger')
+                return redirect(url_for('super_partner_groups'))
+            
+            # 파일 업로드 처리
+            registration_cert_path = None
+            logo_path = None
+            
+            if 'registration_cert' in request.files:
+                file = request.files['registration_cert']
+                if file and file.filename:
+                    try:
+                        filename = f"partner_{business_number}_cert_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file.filename.rsplit('.', 1)[1].lower()}"
+                        filepath = os.path.join(UPLOAD_DIR, filename)
+                        os.makedirs(UPLOAD_DIR, exist_ok=True)
+                        file.save(filepath)
+                        registration_cert_path = filename
+                    except Exception as e:
+                        print(f"Warning: Failed to save registration cert: {e}")
+            
+            if 'logo' in request.files:
+                file = request.files['logo']
+                if file and file.filename:
+                    try:
+                        filename = f"partner_{business_number}_logo_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file.filename.rsplit('.', 1)[1].lower()}"
+                        filepath = os.path.join(UPLOAD_DIR, filename)
+                        os.makedirs(UPLOAD_DIR, exist_ok=True)
+                        file.save(filepath)
+                        logo_path = filename
+                    except Exception as e:
+                        print(f"Warning: Failed to save logo: {e}")
+            
+            # 파트너그룹 생성
+            partner_group = PartnerGroup(
+                name=name,
+                business_number=business_number,
+                representative=representative,
+                phone=phone,
+                mobile=mobile,
+                address=address,
+                registration_cert_path=registration_cert_path,
+                logo_path=logo_path,
+                memo=memo
+            )
+            db.session.add(partner_group)
+            
+            if not safe_commit():
+                flash('파트너그룹 생성 중 오류가 발생했습니다.', 'danger')
+            else:
+                # 파트너그룹 생성 시 기본 관리자 계정 생성
+                try:
+                    # 파트너그룹별 기본 관리자 계정 생성
+                    admin_username = f"{name}_admin"
+                    admin_password = f"{business_number[-4:]}"  # 사업자번호 마지막 4자리
+                    
+                    # 기존 관리자 계정이 있는지 확인
+                    existing_admin = db.session.query(Member).filter(
+                        Member.username == admin_username,
+                        Member.partner_group_id == partner_group.id
+                    ).first()
+                    
+                    if not existing_admin:
+                        admin_member = Member(
+                            username=admin_username,
+                            company_name=name,
+                            business_number=business_number,
+                            representative=representative,
+                            phone=phone,
+                            approval_status='승인',
+                            role='admin',
+                            partner_group_id=partner_group.id
+                        )
+                        admin_member.set_password(admin_password)
+                        db.session.add(admin_member)
+                        if not safe_commit():
+                            print(f"Warning: Failed to create admin account for partner group {name}")
+                        else:
+                            print(f'파트너그룹 "{name}" 관리자 계정 생성: {admin_username} / {admin_password}')
+                except Exception as e:
+                    print(f"Warning: Failed to create admin account: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                flash(f'파트너그룹 "{name}"이(가) 생성되었습니다.', 'success')
+                
+        elif action == 'update' and partner_id:
+            # 파트너그룹 수정
+            partner = db.session.get(PartnerGroup, int(partner_id))
+            if partner:
+                partner.name = request.form.get('name', '').strip() or partner.name
+                partner.business_number = request.form.get('business_number', '').strip() or partner.business_number
+                partner.representative = request.form.get('representative', '').strip() or partner.representative
+                partner.phone = request.form.get('phone', '').strip() or partner.phone
+                partner.mobile = request.form.get('mobile', '').strip() or partner.mobile
+                partner.address = request.form.get('address', '').strip() or partner.address
+                partner.memo = request.form.get('memo', '').strip() or partner.memo
+                
+                # 파일 업로드 처리
+                if 'registration_cert' in request.files:
+                    file = request.files['registration_cert']
+                    if file and file.filename:
+                        try:
+                            filename = f"partner_{partner.business_number}_cert_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file.filename.rsplit('.', 1)[1].lower()}"
+                            filepath = os.path.join(UPLOAD_DIR, filename)
+                            os.makedirs(UPLOAD_DIR, exist_ok=True)
+                            file.save(filepath)
+                            partner.registration_cert_path = filename
+                        except Exception as e:
+                            print(f"Warning: Failed to save registration cert: {e}")
+                
+                if 'logo' in request.files:
+                    file = request.files['logo']
+                    if file and file.filename:
+                        try:
+                            filename = f"partner_{partner.business_number}_logo_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file.filename.rsplit('.', 1)[1].lower()}"
+                            filepath = os.path.join(UPLOAD_DIR, filename)
+                            os.makedirs(UPLOAD_DIR, exist_ok=True)
+                            file.save(filepath)
+                            partner.logo_path = filename
+                        except Exception as e:
+                            print(f"Warning: Failed to save logo: {e}")
+                
+                if not safe_commit():
+                    flash('파트너그룹 수정 중 오류가 발생했습니다.', 'danger')
+                else:
+                    flash('파트너그룹이 수정되었습니다.', 'success')
+            else:
+                flash('파트너그룹을 찾을 수 없습니다.', 'danger')
+                
+        elif action == 'delete' and partner_id:
+            # 파트너그룹 삭제
+            partner = db.session.get(PartnerGroup, int(partner_id))
+            if partner:
+                db.session.delete(partner)
+                if not safe_commit():
+                    flash('파트너그룹 삭제 중 오류가 발생했습니다.', 'danger')
+                else:
+                    flash('파트너그룹이 삭제되었습니다.', 'success')
+            else:
+                flash('파트너그룹을 찾을 수 없습니다.', 'danger')
+        
+        return redirect(url_for('super_partner_groups'))
+    
+    # GET 요청: 파트너그룹 목록 조회
+    partners = db.session.query(PartnerGroup).order_by(PartnerGroup.created_at.desc()).all()
+    return render_template('super/partner_groups.html', partners=partners)
+
+
+@app.route('/super/all-insurance', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def super_all_insurance():
+    """전체책임보험현황 (모든 파트너그룹 데이터 취합)"""
+    ensure_initialized()
+    
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('super_dashboard'))
+    
+    # 검색 조건
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    partner_group_id = request.args.get('partner_group_id')
+    company_name = request.args.get('company_name', '').strip()
+    enrollment_status = request.args.get('enrollment_status')  # 가입완료, 미가입
+    
+    # 기본 쿼리 (모든 파트너그룹 데이터)
+    query = db.session.query(InsuranceApplication)
+    
+    # 검색 필터 적용
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(InsuranceApplication.created_at >= datetime.combine(start_dt, datetime.min.time(), tzinfo=KST))
+        except Exception:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(InsuranceApplication.created_at < datetime.combine(end_dt, datetime.min.time(), tzinfo=KST) + timedelta(days=1))
+        except Exception:
+            pass
+    
+    if partner_group_id:
+        query = query.filter(InsuranceApplication.partner_group_id == int(partner_group_id))
+    
+    if company_name:
+        # Member 테이블과 조인하여 상사명으로 필터링
+        query = query.join(Member).filter(Member.company_name.like(f'%{company_name}%'))
+    
+    if enrollment_status == '가입완료':
+        query = query.filter(InsuranceApplication.start_at.is_not(None))
+    elif enrollment_status == '미가입':
+        query = query.filter(InsuranceApplication.start_at.is_(None))
+    
+    rows = query.order_by(InsuranceApplication.created_at.desc()).all()
+    
+    # 파트너그룹 목록 (필터용)
+    partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+    
+    # 엑셀 다운로드
+    if request.args.get('download') == 'excel':
+        import pandas as pd
+        data = []
+        for r in rows:
+            partner_name = r.partner_group.name if r.partner_group else ''
+            company_name_val = r.created_by_member.company_name if r.created_by_member else ''
+            data.append({
+                '파트너그룹(상호)': partner_name,
+                '상사명': company_name_val,
+                '신청시간': r.created_at,
+                '가입희망일자': r.desired_start_date,
+                '가입시간': r.start_at,
+                '종료시간': r.end_at,
+                '조합승인시간': r.approved_at,
+                '피보험자코드': r.insured_code,
+                '계약자코드': r.contractor_code,
+                '한글차량번호': r.car_plate,
+                '차대번호': r.vin,
+                '차량명': r.car_name,
+                '차량등록일자': r.car_registered_at,
+                '보험료': r.premium,
+                '비고': r.memo or '',
+            })
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='전체책임보험현황')
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f'all_insurance_{datetime.now().strftime("%Y%m%d")}.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+    
+    # 편집 처리
+    if request.method == 'POST':
+        action = request.form.get('action')
+        row_id = request.form.get('row_id')
+        
+        if action == 'update' and row_id:
+            row = db.session.get(InsuranceApplication, int(row_id))
+            if row:
+                # 편집 가능한 필드들 업데이트
+                row.memo = request.form.get('memo', '').strip() or row.memo
+                if not safe_commit():
+                    flash('수정 중 오류가 발생했습니다.', 'danger')
+                else:
+                    flash('수정되었습니다.', 'success')
+        
+        elif action == 'delete' and row_id:
+            row = db.session.get(InsuranceApplication, int(row_id))
+            if row:
+                db.session.delete(row)
+                if not safe_commit():
+                    flash('삭제 중 오류가 발생했습니다.', 'danger')
+                else:
+                    flash('삭제되었습니다.', 'success')
+        
+        return redirect(url_for('super_all_insurance', 
+                               start_date=start_date, 
+                               end_date=end_date,
+                               partner_group_id=partner_group_id,
+                               company_name=company_name,
+                               enrollment_status=enrollment_status))
+    
+    return render_template('super/all_insurance.html', 
+                         rows=rows, 
+                         partner_groups=partner_groups,
+                         start_date=start_date,
+                         end_date=end_date,
+                         partner_group_id=partner_group_id,
+                         company_name=company_name,
+                         enrollment_status=enrollment_status)
+
+
+@app.route('/super/settlement', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def super_settlement():
+    """정산페이지 (파트너그룹별 정산)"""
+    ensure_initialized()
+    
+    if db is None:
+        flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+        return redirect(url_for('super_dashboard'))
+    
+    year = int(request.args.get('year', datetime.now().year))
+    month = int(request.args.get('month', datetime.now().month))
+    partner_group_id = request.args.get('partner_group_id')
+    
+    # 기준: 해당 년/월 데이터 (시작일 기준)
+    start_period = datetime(year, month, 1, tzinfo=KST)
+    if month == 12:
+        next_month = datetime(year + 1, 1, 1, tzinfo=KST)
+    else:
+        next_month = datetime(year, month + 1, 1, tzinfo=KST)
+    
+    # 쿼리 생성
+    query = db.session.query(InsuranceApplication).filter(
+        InsuranceApplication.start_at.is_not(None),
+        InsuranceApplication.start_at >= start_period,
+        InsuranceApplication.start_at < next_month,
+    )
+    
+    # 파트너그룹 필터
+    if partner_group_id:
+        query = query.filter(InsuranceApplication.partner_group_id == int(partner_group_id))
+    
+    rows = query.all()
+    
+    # 그룹핑: 파트너그룹별, 상사별 건수/금액
+    by_partner_company = {}
+    for r in rows:
+        partner_name = r.partner_group.name if r.partner_group else '미지정'
+        company = r.created_by_member.company_name if r.created_by_member else '미상'
+        rep = r.created_by_member.representative if r.created_by_member else ''
+        biz = r.created_by_member.business_number if r.created_by_member else ''
+        key = (partner_name, company, rep, biz)
+        by_partner_company.setdefault(key, 0)
+        by_partner_company[key] += 1
+    
+    settlements = []
+    by_partner = {}  # 파트너그룹별 합계
+    
+    for (partner_name, company, rep, biz), count in by_partner_company.items():
+        amount = count * 9500
+        settlements.append({
+            'partner_name': partner_name,
+            'company': company,
+            'representative': rep,
+            'business_number': biz,
+            'count': count,
+            'amount': amount,
+        })
+        
+        # 파트너그룹별 합계 계산
+        by_partner.setdefault(partner_name, {'count': 0, 'amount': 0})
+        by_partner[partner_name]['count'] += count
+        by_partner[partner_name]['amount'] += amount
+    
+    # 전체 합계
+    total_count = sum(s['count'] for s in settlements)
+    total_amount = sum(s['amount'] for s in settlements)
+    
+    # 파트너그룹 목록
+    partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+    
+    # 엑셀 다운로드
+    if request.args.get('download') == 'excel':
+        import pandas as pd
+        data = []
+        current_partner = None
+        for s in settlements:
+            if current_partner != s['partner_name']:
+                if current_partner is not None:
+                    # 이전 파트너그룹 합계 추가
+                    partner_total = by_partner[current_partner]
+                    data.append({
+                        '파트너그룹(상호)': current_partner,
+                        '상사명': '합계',
+                        '대표자': '',
+                        '건수': partner_total['count'],
+                        '금액': partner_total['amount'],
+                        '비고': '',
+                        '작업': '',
+                        '청구서': '',
+                    })
+                current_partner = s['partner_name']
+            
+            data.append({
+                '파트너그룹(상호)': s['partner_name'],
+                '상사명': s['company'],
+                '대표자': s['representative'],
+                '건수': s['count'],
+                '금액': s['amount'],
+                '비고': '',
+                '작업': '',
+                '청구서': '',
+            })
+        
+        # 마지막 파트너그룹 합계
+        if current_partner:
+            partner_total = by_partner[current_partner]
+            data.append({
+                '파트너그룹(상호)': current_partner,
+                '상사명': '합계',
+                '대표자': '',
+                '건수': partner_total['count'],
+                '금액': partner_total['amount'],
+                '비고': '',
+                '작업': '',
+                '청구서': '',
+            })
+        
+        # 전체 합계
+        data.append({
+            '파트너그룹(상호)': '',
+            '상사명': '전체 합계',
+            '대표자': '',
+            '건수': total_count,
+            '금액': total_amount,
+            '비고': '',
+            '작업': '',
+            '청구서': '',
+        })
+        
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='정산')
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f'settlement_{year}{month:02d}.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+    
+    return render_template('super/settlement.html', 
+                         year=year, 
+                         month=month,
+                         partner_group_id=partner_group_id,
+                         partner_groups=partner_groups,
+                         settlements=settlements,
+                         by_partner=by_partner,
+                         total_count=total_count, 
+                         total_amount=total_amount)
 
 
 if __name__ == '__main__':

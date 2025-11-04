@@ -7,10 +7,18 @@
     <div class="text-center animate-scale-in">
       <div class="flex justify-center mb-6">
         <div class="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 p-5 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110">
-          <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="h-16 w-16 object-contain">
+          {% if partner_group and partner_group.logo_path %}
+            <img src="{{ url_for('uploaded_file', filename=partner_group.logo_path) }}" alt="logo" class="h-16 w-16 object-contain" onerror="this.src='{{ url_for('static', filename='logoh.png') }}';">
+          {% else %}
+            <img src="{{ url_for('static', filename='logoh.png') }}" alt="logo" class="h-16 w-16 object-contain">
+          {% endif %}
         </div>
       </div>
-      <h2 class="text-4xl font-bold gradient-text mb-2">책임보험가입신청</h2>
+      {% if partner_group %}
+        <h2 class="text-4xl font-bold gradient-text mb-2">{{ partner_group.name }}책임보험가입</h2>
+      {% else %}
+        <h2 class="text-4xl font-bold gradient-text mb-2">현대해상책임보험프로그램</h2>
+      {% endif %}
       <p class="text-gray-600 font-medium">부산자동차매매사업자조합</p>
     </div>
 
@@ -32,6 +40,9 @@
       {% endwith %}
 
       <form method="post" class="space-y-6">
+        {% if partner_group %}
+          <input type="hidden" name="partner_id" value="{{ partner_group.id }}">
+        {% endif %}
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-2">
             <i class="bi bi-person mr-2 text-blue-500"></i>아이디
@@ -60,9 +71,15 @@
         <div class="text-center pt-4 border-t border-gray-200">
           <p class="text-sm text-gray-600">
             계정이 없으신가요?
-            <a href="{{ url_for('register') }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
-              회원가입
-            </a>
+            {% if partner_group %}
+              <a href="{{ url_for('register', partner_id=partner_group.id) }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
+                회원가입
+              </a>
+            {% else %}
+              <a href="{{ url_for('register') }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
+                회원가입
+              </a>
+            {% endif %}
           </p>
         </div>
       </form>

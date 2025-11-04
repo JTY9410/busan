@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block title %}파트너그룹 관리{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+  <div class="mb-6">
+    <a href="{{ url_for('super_dashboard') }}" class="inline-flex items-center px-4 py-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#4a4a4a] transition-colors duration-200">
+      <i class="bi bi-arrow-left mr-2"></i>대시보드로
+    </a>
+  </div>
+
+  <!-- 신규추가 버튼 -->
+  <div class="mb-6">
+    <button onclick="document.getElementById('create_form').classList.toggle('hidden')" 
+            class="bg-[#1a1a1a] hover:bg-[#4a4a4a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+      <i class="bi bi-plus-circle mr-2"></i>신규추가
+    </button>
+  </div>
+
+  <!-- 신규추가 폼 -->
+  <div id="create_form" class="hidden glass rounded-lg p-6 mb-6">
+    <h2 class="text-2xl font-semibold text-[#1a1a1a] mb-4">파트너그룹 신규추가</h2>
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      <input type="hidden" name="action" value="create">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">파트너그룹명(상호) <span class="text-red-500">*</span></label>
+          <input type="text" name="name" required
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">사업자등록번호 <span class="text-red-500">*</span></label>
+          <input type="text" name="business_number" required
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">대표자 <span class="text-red-500">*</span></label>
+          <input type="text" name="representative" required
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">유선번호 <span class="text-red-500">*</span></label>
+          <input type="text" name="phone" required
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">휴대폰번호</label>
+          <input type="text" name="mobile"
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">주소</label>
+          <input type="text" name="address"
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">사업자등록증 첨부</label>
+          <input type="file" name="registration_cert" accept=".pdf,.jpg,.jpeg,.png"
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">사업장로고 첨부</label>
+          <input type="file" name="logo" accept=".jpg,.jpeg,.png"
+                 class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">비고</label>
+          <textarea name="memo" rows="3"
+                    class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300"></textarea>
+        </div>
+      </div>
+      
+      <div class="flex gap-4">
+        <button type="submit" class="bg-[#1a1a1a] hover:bg-[#4a4a4a] text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200">
+          <i class="bi bi-check-lg mr-2"></i>완료
+        </button>
+        <button type="button" onclick="document.getElementById('create_form').classList.add('hidden')" 
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors duration-200">
+          취소
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 파트너그룹 목록 -->
+  <div class="glass rounded-lg p-6">
+    <h2 class="text-2xl font-semibold text-[#1a1a1a] mb-4">파트너그룹 목록</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 sticky-header">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">순</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">파트너그룹명(상호)</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">사업자등록번호</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">대표자</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">유선번호</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">휴대폰번호</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">주소</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">사업자등록증첨부</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">사업장로고첨부</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">비고</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">작업</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for p in partners %}
+          <tr id="row_{{ p.id }}" class="hover:bg-gray-50">
+            <td class="px-4 py-3 whitespace-nowrap">{{ loop.index }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="name_{{ p.id }}">{{ p.name }}</span>
+              <input type="text" name="name" form="edit_form_{{ p.id }}" value="{{ p.name }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="business_number_{{ p.id }}">{{ p.business_number }}</span>
+              <input type="text" name="business_number" form="edit_form_{{ p.id }}" value="{{ p.business_number }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="representative_{{ p.id }}">{{ p.representative }}</span>
+              <input type="text" name="representative" form="edit_form_{{ p.id }}" value="{{ p.representative }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="phone_{{ p.id }}">{{ p.phone }}</span>
+              <input type="text" name="phone" form="edit_form_{{ p.id }}" value="{{ p.phone }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="mobile_{{ p.id }}">{{ p.mobile or '' }}</span>
+              <input type="text" name="mobile" form="edit_form_{{ p.id }}" value="{{ p.mobile or '' }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="address_{{ p.id }}">{{ p.address or '' }}</span>
+              <input type="text" name="address" form="edit_form_{{ p.id }}" value="{{ p.address or '' }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {% if p.registration_cert_path %}
+                <a href="{{ url_for('static', filename='../uploads/' + p.registration_cert_path) }}" target="_blank" 
+                   class="text-blue-600 hover:text-blue-800 underline">
+                  <i class="bi bi-file-earmark-pdf mr-1"></i>보기
+                </a>
+              {% else %}
+                <span class="text-gray-400">-</span>
+              {% endif %}
+              <input type="file" name="registration_cert" form="edit_form_{{ p.id }}" accept=".pdf,.jpg,.jpeg,.png" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {% if p.logo_path %}
+                <a href="{{ url_for('static', filename='../uploads/' + p.logo_path) }}" target="_blank" 
+                   class="text-blue-600 hover:text-blue-800 underline">
+                  <i class="bi bi-image mr-1"></i>보기
+                </a>
+              {% else %}
+                <span class="text-gray-400">-</span>
+              {% endif %}
+              <input type="file" name="logo" form="edit_form_{{ p.id }}" accept=".jpg,.jpeg,.png" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="memo_{{ p.id }}">{{ p.memo or '' }}</span>
+              <input type="text" name="memo" form="edit_form_{{ p.id }}" value="{{ p.memo or '' }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div id="view_buttons_{{ p.id }}" class="flex gap-2">
+                <button onclick="toggleEdit({{ p.id }})" 
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm">
+                  수정
+                </button>
+                <form method="post" class="inline" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="partner_id" value="{{ p.id }}">
+                  <button type="submit" 
+                          class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    삭제
+                  </button>
+                </form>
+              </div>
+              <div id="edit_buttons_{{ p.id }}" class="hidden flex gap-2">
+                <form id="edit_form_{{ p.id }}" method="post" enctype="multipart/form-data" class="inline">
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="partner_id" value="{{ p.id }}">
+                  <button type="submit" 
+                          class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    저장
+                  </button>
+                </form>
+                <button onclick="toggleEdit({{ p.id }})" 
+                        class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm">
+                  취소
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleEdit(id) {
+  const row = document.getElementById('row_' + id);
+  const viewButtons = document.getElementById('view_buttons_' + id);
+  const editButtons = document.getElementById('edit_buttons_' + id);
+  
+  // 모든 필드 토글
+  ['name', 'business_number', 'representative', 'phone', 'mobile', 'address', 'memo'].forEach(field => {
+    const span = document.getElementById(field + '_' + id);
+    const input = row.querySelector(`input[name="${field}"]`);
+    if (span && input) {
+      if (span.classList.contains('hidden')) {
+        // 편집 모드 -> 보기 모드
+        span.textContent = input.value || '';
+        span.classList.remove('hidden');
+        input.classList.add('hidden');
+      } else {
+        // 보기 모드 -> 편집 모드
+        span.classList.add('hidden');
+        input.classList.remove('hidden');
+      }
+    }
+  });
+  
+  // 파일 입력 필드 토글
+  const certInput = row.querySelector('input[name="registration_cert"]');
+  const logoInput = row.querySelector('input[name="logo"]');
+  if (certInput) certInput.classList.toggle('hidden');
+  if (logoInput) logoInput.classList.toggle('hidden');
+  
+  // 버튼 토글
+  viewButtons.classList.toggle('hidden');
+  editButtons.classList.toggle('hidden');
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block title %}전체책임보험현황{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+  <div class="mb-6">
+    <a href="{{ url_for('super_dashboard') }}" class="inline-flex items-center px-4 py-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#4a4a4a] transition-colors duration-200">
+      <i class="bi bi-arrow-left mr-2"></i>대시보드로
+    </a>
+  </div>
+
+  <!-- 검색 조건 -->
+  <div class="glass rounded-lg p-6 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">시작일</label>
+        <input type="date" name="start_date" value="{{ start_date or '' }}"
+               class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">종료일</label>
+        <input type="date" name="end_date" value="{{ end_date or '' }}"
+               class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">파트너그룹(상호)</label>
+        <select name="partner_group_id" class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+          <option value="">전체</option>
+          {% for pg in partner_groups %}
+          <option value="{{ pg.id }}" {% if partner_group_id|string == pg.id|string %}selected{% endif %}>{{ pg.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">상사명</label>
+        <input type="text" name="company_name" value="{{ company_name or '' }}"
+               class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">가입유무</label>
+        <select name="enrollment_status" class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] transition-all duration-300">
+          <option value="">전체</option>
+          <option value="가입완료" {% if enrollment_status == '가입완료' %}selected{% endif %}>가입완료</option>
+          <option value="미가입" {% if enrollment_status == '미가입' %}selected{% endif %}>미가입</option>
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="w-full bg-[#1a1a1a] hover:bg-[#4a4a4a] text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
+          <i class="bi bi-search mr-2"></i>검색
+        </button>
+      </div>
+    </form>
+    <div class="mt-4">
+      <a href="{{ url_for('super_all_insurance', start_date=start_date, end_date=end_date, partner_group_id=partner_group_id, company_name=company_name, enrollment_status=enrollment_status, download='excel') }}" 
+         class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors duration-200">
+        <i class="bi bi-file-earmark-excel mr-2"></i>엑셀저장
+      </a>
+    </div>
+  </div>
+
+  <!-- 데이터 테이블 -->
+  <div class="glass rounded-lg p-6">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 sticky-header">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">순</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">파트너그룹(상호)</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">상사명</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">신청시간</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">가입희망일자</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">가입시간</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">종료시간</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">조합승인시간</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">피보험자코드</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">계약자코드</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">한글차량번호</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차대번호</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차량명</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차량등록일자</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">보험료</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">비고</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">작업</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for r in rows %}
+          <tr id="row_{{ r.id }}" class="hover:bg-gray-50">
+            <td class="px-4 py-3 whitespace-nowrap">{{ loop.index }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.partner_group.name if r.partner_group else '미지정' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.created_by_member.company_name if r.created_by_member else '미상' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.desired_start_date.strftime('%Y-%m-%d') if r.desired_start_date else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.start_at.strftime('%Y-%m-%d %H:%M') if r.start_at else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.end_at.strftime('%Y-%m-%d %H:%M') if r.end_at else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.approved_at.strftime('%Y-%m-%d %H:%M') if r.approved_at else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.insured_code or '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.contractor_code or '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.car_plate or '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.vin or '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.car_name or '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ r.car_registered_at.strftime('%Y-%m-%d') if r.car_registered_at else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ '{:,}'.format(r.premium) if r.premium else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span id="memo_{{ r.id }}">{{ r.memo or '' }}</span>
+              <input type="text" name="memo" form="edit_form_{{ r.id }}" value="{{ r.memo or '' }}" 
+                     class="hidden w-full px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div id="view_buttons_{{ r.id }}" class="flex gap-2">
+                <button onclick="toggleEdit({{ r.id }})" 
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm">
+                  수정
+                </button>
+                <form method="post" class="inline" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <input type="hidden" name="start_date" value="{{ start_date or '' }}">
+                  <input type="hidden" name="end_date" value="{{ end_date or '' }}">
+                  <input type="hidden" name="partner_group_id" value="{{ partner_group_id or '' }}">
+                  <input type="hidden" name="company_name" value="{{ company_name or '' }}">
+                  <input type="hidden" name="enrollment_status" value="{{ enrollment_status or '' }}">
+                  <button type="submit" 
+                          class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    삭제
+                  </button>
+                </form>
+              </div>
+              <div id="edit_buttons_{{ r.id }}" class="hidden flex gap-2">
+                <form id="edit_form_{{ r.id }}" method="post" class="inline">
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <button type="submit" 
+                          class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
+                    저장
+                  </button>
+                </form>
+                <button onclick="toggleEdit({{ r.id }})" 
+                        class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm">
+                  취소
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleEdit(id) {
+  const row = document.getElementById('row_' + id);
+  const viewButtons = document.getElementById('view_buttons_' + id);
+  const editButtons = document.getElementById('edit_buttons_' + id);
+  const memoSpan = document.getElementById('memo_' + id);
+  const memoInput = row.querySelector('input[name="memo"]');
+  
+  if (memoSpan && memoInput) {
+    if (memoSpan.classList.contains('hidden')) {
+      memoSpan.textContent = memoInput.value || '';
+      memoSpan.classList.remove('hidden');
+      memoInput.classList.add('hidden');
+    } else {
+      memoSpan.classList.add('hidden');
+      memoInput.classList.remove('hidden');
+    }
+  }
+  
+  viewButtons.classList.toggle('hidden');
+  editButtons.classList.toggle('hidden');
+}
+</script>
+{% endblock %}
+

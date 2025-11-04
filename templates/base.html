@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}부산 조합 책임 보험{% endblock %}</title>
+  <title>{% block title %}현대해상책임보험프로그램{% endblock %}</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Bootstrap Icons CDN (Tailwind와 호환되므로 유지) -->
@@ -530,10 +530,10 @@
       <div class="flex justify-between items-center">
         <a class="flex items-center text-[#1a1a1a] group" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">
           <div class="p-2 rounded mr-3 transition-all duration-300">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="h-8 w-8 object-contain">
+            <img src="{{ url_for('static', filename='logoh.png') }}" alt="logo" class="h-8 w-8 object-contain">
           </div>
           <div>
-            <span class="text-xl font-semibold text-[#1a1a1a] tracking-tight">책임보험가입신청</span>
+            <span class="text-xl font-semibold text-[#1a1a1a] tracking-tight">현대해상책임보험프로그램</span>
             <p class="text-xs text-[#6b6b6b] mt-0.5">부산자동차매매사업자조합</p>
           </div>
         </a>
