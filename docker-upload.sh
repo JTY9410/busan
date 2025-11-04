@@ -1,15 +1,23 @@
 #!/bin/bash
 
 # Docker Hub 업로드 스크립트
-# 사용법: ./docker-upload.sh [DOCKERHUB_USERNAME]
+# 사용법: ./docker-upload.sh [DOCKERHUB_USERNAME] [--skip-build]
 
 set -e
 
 # Docker Hub 사용자명 확인
 if [ -z "$1" ]; then
-    echo "❌ 사용법: ./docker-upload.sh <DOCKERHUB_USERNAME>"
+    echo "❌ 사용법: ./docker-upload.sh <DOCKERHUB_USERNAME> [--skip-build]"
     echo "예시: ./docker-upload.sh myusername"
+    echo ""
+    echo "옵션:"
+    echo "  --skip-build  이미 빌드된 이미지를 사용 (빌드 스킵)"
     exit 1
+fi
+
+SKIP_BUILD=false
+if [ "$2" == "--skip-build" ]; then
+    SKIP_BUILD=true
 fi
 
 DOCKER_USERNAME="$1"
@@ -38,16 +46,27 @@ if ! docker login; then
 fi
 
 # Docker 이미지 빌드
-echo ""
-echo "🔨 Docker 이미지 빌드 중..."
-docker build --no-cache -t "$TAG_LATEST" -t "$TAG_VERSION" .
-
-# 빌드 성공 확인
-if [ $? -eq 0 ]; then
-    echo "✅ 이미지 빌드 완료!"
+if [ "$SKIP_BUILD" = false ]; then
+    echo ""
+    echo "🔨 Docker 이미지 빌드 중..."
+    docker build --no-cache -t "$TAG_LATEST" -t "$TAG_VERSION" .
+    
+    # 빌드 성공 확인
+    if [ $? -eq 0 ]; then
+        echo "✅ 이미지 빌드 완료!"
+    else
+        echo "❌ 이미지 빌드 실패"
+        exit 1
+    fi
 else
-    echo "❌ 이미지 빌드 실패"
-    exit 1
+    echo ""
+    echo "⏭️  빌드 스킵 (기존 이미지 사용)"
+    # 기존 이미지에 태그 추가
+    docker tag busan-insurance:local "$TAG_LATEST" 2>/dev/null || docker tag busan-insurance:latest "$TAG_LATEST" 2>/dev/null || {
+        echo "❌ 기존 이미지를 찾을 수 없습니다. 빌드를 먼저 실행하세요."
+        exit 1
+    }
+    docker tag "$TAG_LATEST" "$TAG_VERSION"
 fi
 
 # Docker Hub에 푸시

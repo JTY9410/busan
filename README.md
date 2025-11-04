@@ -19,8 +19,18 @@ python app.py
 
 ### Docker 실행
 ```bash
+# 로컬 빌드 및 실행
+./docker-build.sh
+
+# 또는 직접 실행
 docker build -t busan-insurance .
-docker run -p 5000:5000 -v $(pwd):/app busan-insurance
+docker run -p 5000:5000 -v $(pwd)/data:/app/data busan-insurance
+```
+
+### Docker Hub 업로드
+```bash
+# Docker Hub에 업로드 (자세한 내용은 DOCKER_UPLOAD.md 참고)
+./docker-upload.sh <DOCKERHUB_USERNAME>
 ```
 
 ### Vercel 배포

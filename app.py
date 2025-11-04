@@ -685,44 +685,135 @@ def init_db_and_assets():
     try:
         admin_username = 'admin'
         admin_password = 'admin123!@#'
-        # Use db.session.query instead of Member.query to ensure app context
-        # 기존 관리자 계정 찾기: username='admin' 또는 business_number='0000000000' 또는 role='admin'
-        admin = db.session.query(Member).filter(
-            (Member.username == admin_username) |
-            (Member.business_number == '0000000000') |
-            (Member.role == 'admin')
-        ).first()
+        admin_business_number = '0000000000'
+        
+        # 1단계: username='admin'으로 먼저 찾기 (우선순위)
+        admin = db.session.query(Member).filter(Member.username == admin_username).first()
+        
+        if not admin:
+            # 2단계: business_number='0000000000'으로 찾기
+            admin = db.session.query(Member).filter(Member.business_number == admin_business_number).first()
+            
+            if admin:
+                # 기존 레코드가 있지만 username이 'admin'이 아님
+                # username을 'admin'으로 변경하려고 시도
+                # 만약 'admin'이 이미 다른 레코드에서 사용 중이면 처리
+                existing_admin_username = db.session.query(Member).filter(
+                    Member.username == admin_username,
+                    Member.id != admin.id
+                ).first()
+                
+                if existing_admin_username:
+                    # 'admin' username이 다른 레코드에 있음 - 기존 레코드 사용
+                    admin = existing_admin_username
+                else:
+                    # username을 'admin'으로 변경 가능
+                    admin.username = admin_username
+        
+        # 3단계: role='admin'으로 찾기 (username이나 business_number로 찾지 못한 경우)
+        if not admin:
+            admin = db.session.query(Member).filter(Member.role == 'admin').first()
         
         if not admin:
             # 새 관리자 계정 생성
-            admin = Member(
-                username=admin_username,
-                company_name='부산자동차매매사업자조합',
-                business_number='0000000000',
-                representative='관리자',
-                approval_status='승인',
-                role='admin',
-            )
-            admin.set_password(admin_password)
-            db.session.add(admin)
-            if not safe_commit():
-                raise Exception("Failed to commit admin account creation")
-            print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
-        else:
-            # 기존 관리자 계정 업데이트
-            if admin.username != admin_username:
+            # business_number 중복 확인
+            existing_business = db.session.query(Member).filter(
+                Member.business_number == admin_business_number
+            ).first()
+            
+            if existing_business:
+                # business_number가 이미 사용 중 - 기존 레코드 업데이트
+                admin = existing_business
                 admin.username = admin_username
-            if admin.business_number != '0000000000':
-                admin.business_number = '0000000000'
-            if not getattr(admin, 'role', None) or admin.role != 'admin':
-                admin.role = 'admin'
-            if admin.approval_status != '승인':
-                admin.approval_status = '승인'
-            # 비밀번호 업데이트
-            admin.set_password(admin_password)
+            else:
+                # 새로 생성 가능
+                admin = Member(
+                    username=admin_username,
+                    company_name='부산자동차매매사업자조합',
+                    business_number=admin_business_number,
+                    representative='관리자',
+                    approval_status='승인',
+                    role='admin',
+                )
+                admin.set_password(admin_password)
+                db.session.add(admin)
+                if not safe_commit():
+                    raise Exception("Failed to commit admin account creation")
+                print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
+                return  # 성공적으로 생성했으므로 종료
+        
+        # 기존 관리자 계정 업데이트
+        needs_update = False
+        
+        if admin.username != admin_username:
+            # username이 다른 경우, 중복 확인
+            existing_username = db.session.query(Member).filter(
+                Member.username == admin_username,
+                Member.id != admin.id
+            ).first()
+            
+            if not existing_username:
+                admin.username = admin_username
+                needs_update = True
+        
+        if admin.business_number != admin_business_number:
+            # business_number가 다른 경우, 중복 확인
+            existing_business = db.session.query(Member).filter(
+                Member.business_number == admin_business_number,
+                Member.id != admin.id
+            ).first()
+            
+            if not existing_business:
+                admin.business_number = admin_business_number
+                needs_update = True
+        
+        if not getattr(admin, 'role', None) or admin.role != 'admin':
+            admin.role = 'admin'
+            needs_update = True
+        
+        if admin.approval_status != '승인':
+            admin.approval_status = '승인'
+            needs_update = True
+        
+        # 비밀번호는 항상 업데이트
+        admin.set_password(admin_password)
+        needs_update = True
+        
+        if needs_update:
             if not safe_commit():
                 raise Exception("Failed to commit admin account update")
             print(f'관리자 계정 정보가 업데이트되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
+        
+    except IntegrityError as e:
+        # UNIQUE constraint 오류 처리
+        try:
+            import sys
+            sys.stderr.write(f"Admin account IntegrityError: {e}\n")
+            db.session.rollback()
+        except Exception:
+            pass
+        
+        # 롤백 후 재시도: 기존 레코드 찾아서 업데이트
+        try:
+            admin = db.session.query(Member).filter(Member.username == admin_username).first()
+            if not admin:
+                admin = db.session.query(Member).filter(Member.business_number == admin_business_number).first()
+            
+            if admin:
+                admin.username = admin_username
+                admin.business_number = admin_business_number
+                admin.role = 'admin'
+                admin.approval_status = '승인'
+                admin.set_password(admin_password)
+                safe_commit()
+                print(f'관리자 계정 정보가 업데이트되었습니다 (재시도). 아이디: {admin_username}, 비밀번호: {admin_password}')
+        except Exception as retry_err:
+            try:
+                import sys
+                sys.stderr.write(f"Admin account retry failed: {retry_err}\n")
+            except Exception:
+                pass
+    
     except Exception as e:
         print(f"Warning: Admin account creation/update failed: {e}")
         import traceback
