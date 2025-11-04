@@ -1148,22 +1148,43 @@ def debug_template_check():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    ensure_initialized()  # Initialize on first request for Vercel
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        if db is None:
-            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+    try:
+        ensure_initialized()  # Initialize on first request for Vercel
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            if db is None:
+                flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+                return render_template('auth/login.html')
+            
+            try:
+                user = db.session.query(Member).filter_by(username=username).first()
+                if user and user.check_password(password):
+                    if user.approval_status != '승인':
+                        flash('관리자 승인 후 로그인 가능합니다.', 'warning')
+                        return redirect(url_for('login'))
+                    login_user(user)
+                    return redirect(url_for('dashboard'))
+                flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+            except Exception as e:
+                try:
+                    import sys
+                    sys.stderr.write(f"Login query error: {e}\n")
+                except Exception:
+                    pass
+                flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+        return render_template('auth/login.html')
+    except Exception as e:
+        try:
+            import sys
+            sys.stderr.write(f"Login route error: {e}\n")
+        except Exception:
+            pass
+        flash('로그인 페이지 로드 중 오류가 발생했습니다.', 'danger')
+        try:
             return render_template('auth/login.html')
-        user = db.session.query(Member).filter_by(username=username).first()
-        if user and user.check_password(password):
-            if user.approval_status != '승인':
-                flash('관리자 승인 후 로그인 가능합니다.', 'warning')
-                return redirect(url_for('login'))
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
-    return render_template('auth/login.html')
+        except Exception:
+            return "로그인 페이지를 불러올 수 없습니다.", 500
 
 
 @app.route('/logout')
@@ -1175,71 +1196,130 @@ def logout():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    ensure_initialized()  # Initialize on first request for Vercel
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        company_name = request.form.get('company_name', '').strip()
-        address = request.form.get('address', '').strip()
-        business_number = request.form.get('business_number', '').strip()
-        corporation_number = request.form.get('corporation_number', '').strip()
-        representative = request.form.get('representative', '').strip()
-        phone = request.form.get('phone', '').strip()
-        mobile = request.form.get('mobile', '').strip()
-        email = request.form.get('email', '').strip()
+    try:
+        ensure_initialized()  # Initialize on first request for Vercel
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            company_name = request.form.get('company_name', '').strip()
+            address = request.form.get('address', '').strip()
+            business_number = request.form.get('business_number', '').strip()
+            corporation_number = request.form.get('corporation_number', '').strip()
+            representative = request.form.get('representative', '').strip()
+            phone = request.form.get('phone', '').strip()
+            mobile = request.form.get('mobile', '').strip()
+            email = request.form.get('email', '').strip()
 
-        if db is None:
-            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
-            return render_template('auth/register.html')
-        if db.session.query(Member).filter_by(username=username).first():
-            flash('이미 존재하는 아이디입니다.', 'danger')
-            return render_template('auth/register.html')
-        if business_number and db.session.query(Member).filter_by(business_number=business_number).first():
-            flash('이미 등록된 사업자번호입니다.', 'danger')
-            return render_template('auth/register.html')
+            if db is None:
+                flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+                return render_template('auth/register.html')
+            
+            try:
+                # Check for duplicate username
+                if db.session.query(Member).filter_by(username=username).first():
+                    flash('이미 존재하는 아이디입니다.', 'danger')
+                    return render_template('auth/register.html')
+                
+                # Check for duplicate business number
+                if business_number and db.session.query(Member).filter_by(business_number=business_number).first():
+                    flash('이미 등록된 사업자번호입니다.', 'danger')
+                    return render_template('auth/register.html')
+            except Exception as e:
+                try:
+                    import sys
+                    sys.stderr.write(f"Register duplicate check error: {e}\n")
+                except Exception:
+                    pass
+                flash('회원 정보 확인 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                return render_template('auth/register.html')
 
-        # 파일 업로드 처리
-        registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
-        if not is_serverless and 'registration_cert' in request.files:
-            file = request.files['registration_cert']
-            if file and file.filename:
-                allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
-                file_ext = os.path.splitext(file.filename)[1].lower()
-                if file_ext in allowed_extensions:
-                    timestamp = datetime.now(KST).strftime('%Y%m%d_%H%M%S')
-                    filename = f"{business_number}_{timestamp}{file_ext}"
-                    filepath = os.path.join(UPLOAD_DIR, filename)
-                    file.save(filepath)
-                    registration_cert_path = os.path.join('uploads', filename)
-        member = Member(
-            username=username,
-            company_name=company_name,
-            address=address,
-            business_number=business_number,
-            corporation_number=corporation_number,
-            representative=representative,
-            phone=phone,
-            mobile=mobile,
-            email=email,
-            registration_cert_path=registration_cert_path,
-            approval_status='신청',
-        )
-        member.set_password(password)
-        db.session.add(member)
-        if not safe_commit():
-            flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-            return render_template('auth/register.html')
-        flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
-        return redirect(url_for('login'))
+            # 파일 업로드 처리
+            registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
+            if not is_serverless and 'registration_cert' in request.files:
+                try:
+                    file = request.files['registration_cert']
+                    if file and file.filename:
+                        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
+                        file_ext = os.path.splitext(file.filename)[1].lower()
+                        if file_ext in allowed_extensions:
+                            timestamp = datetime.now(KST).strftime('%Y%m%d_%H%M%S')
+                            filename = f"{business_number}_{timestamp}{file_ext}"
+                            filepath = os.path.join(UPLOAD_DIR, filename)
+                            file.save(filepath)
+                            registration_cert_path = os.path.join('uploads', filename)
+                except Exception as e:
+                    try:
+                        import sys
+                        sys.stderr.write(f"File upload error: {e}\n")
+                    except Exception:
+                        pass
+                    # Continue without file - not critical
+            
+            try:
+                member = Member(
+                    username=username,
+                    company_name=company_name,
+                    address=address,
+                    business_number=business_number,
+                    corporation_number=corporation_number,
+                    representative=representative,
+                    phone=phone,
+                    mobile=mobile,
+                    email=email,
+                    registration_cert_path=registration_cert_path,
+                    approval_status='신청',
+                )
+                member.set_password(password)
+                db.session.add(member)
+                if not safe_commit():
+                    flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                    return render_template('auth/register.html')
+                flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
+                return redirect(url_for('login'))
+            except Exception as e:
+                try:
+                    import sys
+                    sys.stderr.write(f"Register member creation error: {e}\n")
+                except Exception:
+                    pass
+                flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                return render_template('auth/register.html')
 
-    return render_template('auth/register.html')
+        return render_template('auth/register.html')
+    except Exception as e:
+        try:
+            import sys
+            sys.stderr.write(f"Register route error: {e}\n")
+        except Exception:
+            pass
+        flash('회원가입 페이지 로드 중 오류가 발생했습니다.', 'danger')
+        try:
+            return render_template('auth/register.html')
+        except Exception:
+            return "회원가입 페이지를 불러올 수 없습니다.", 500
 
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    ensure_initialized()  # Ensure initialization
-    return render_template('dashboard.html')
+    try:
+        ensure_initialized()  # Ensure initialization
+        return render_template('dashboard.html')
+    except Exception as e:
+        try:
+            import sys
+            sys.stderr.write(f"Dashboard route error: {e}\n")
+        except Exception:
+            pass
+        flash('대시보드 로드 중 오류가 발생했습니다.', 'danger')
+        try:
+            return render_template('dashboard.html')
+        except Exception:
+            # If template rendering fails, redirect to login
+            try:
+                return redirect(url_for('login'))
+            except Exception:
+                return "대시보드를 불러올 수 없습니다.", 500
 
 
 @app.route('/uploads/<filename>')
