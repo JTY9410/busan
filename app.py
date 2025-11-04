@@ -52,12 +52,12 @@ def _is_read_only_fs() -> bool:
         os.makedirs(test_dir, exist_ok=True)
         test_file = os.path.join(test_dir, "t")
         try:
-        with open(test_file, "wb") as f:
-            f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
-        os.remove(test_file)
-        return False
+            with open(test_file, "wb") as f:
+                f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
+            os.remove(test_file)
+            return False
         except (OSError, IOError, PermissionError):
-        return True
+            return True
         finally:
             # Cleanup
             try:
@@ -130,7 +130,7 @@ else:
     # Only create if not already created
     try:
         if not os.path.exists(STATIC_DIR):
-    os.makedirs(STATIC_DIR, exist_ok=True)
+            os.makedirs(STATIC_DIR, exist_ok=True)
     except (OSError, PermissionError):
         pass
 
