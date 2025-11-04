@@ -1709,6 +1709,13 @@ def login(partner_id=None):
                             # Login user
                             try:
             login_user(user)
+            # 파트너그룹 관리자면 관리자페이지로 이동, 그 외는 대시보드
+            try:
+                user_role = getattr(user, 'role', 'member')
+            except Exception:
+                user_role = 'member'
+            if user_role == 'admin':
+                return redirect(url_for('admin_home'))
             return redirect(url_for('dashboard'))
                             except Exception as login_err:
                                 try:
