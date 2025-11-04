@@ -52,12 +52,12 @@ def _is_read_only_fs() -> bool:
         os.makedirs(test_dir, exist_ok=True)
         test_file = os.path.join(test_dir, "t")
         try:
-            with open(test_file, "wb") as f:
-                f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
-            os.remove(test_file)
-            return False
+        with open(test_file, "wb") as f:
+            f.write(b"x")   # 대부분의 서버리스에서 여기서 OSError: [Errno 30]
+        os.remove(test_file)
+        return False
         except (OSError, IOError, PermissionError):
-            return True
+        return True
         finally:
             # Cleanup
             try:
@@ -130,7 +130,7 @@ else:
     # Only create if not already created
     try:
         if not os.path.exists(STATIC_DIR):
-            os.makedirs(STATIC_DIR, exist_ok=True)
+    os.makedirs(STATIC_DIR, exist_ok=True)
     except (OSError, PermissionError):
         pass
 
@@ -304,7 +304,7 @@ try:
         import sys
         sys.stderr.write("✓ Flask app created successfully\n")
     except Exception:
-        print("✓ Flask app created successfully")
+    print("✓ Flask app created successfully")
 except Exception as e:
     import traceback
     error_msg = f"CRITICAL: App creation failed: {e}\n{traceback.format_exc()}"
@@ -373,7 +373,7 @@ def _ensure_aware(dt):
 def ensure_logo():
     """로고 파일이 없으면 원본에서 복사 - 안전하게 처리"""
     try:
-        os.makedirs(STATIC_DIR, exist_ok=True)
+    os.makedirs(STATIC_DIR, exist_ok=True)
     except (OSError, PermissionError) as e:
         # Cannot create static directory - skip logo setup
         try:
@@ -423,19 +423,19 @@ def ensure_logo():
             if is_serverless:
                 # Vercel 환경에서는 복사 시도 (실패해도 계속)
                 try:
-                    shutil.copy(src, dst)
+                shutil.copy(src, dst)
                     try:
                         import sys
                         sys.stderr.write(f"✓ Logo copied from {src} to {dst}\n")
                     except Exception:
                         pass
-                    return
+                return
                 except (OSError, IOError, PermissionError) as e:
                     # Cannot write to static in serverless - this is expected
                     try:
                         import sys
                         sys.stderr.write(f"Info: Cannot copy logo in serverless (expected): {e}\n")
-                    except Exception:
+        except Exception:
                         pass
                     # Continue - will serve from source path directly
                     continue
@@ -471,15 +471,15 @@ def ensure_logo():
     # 로고 파일이 없으면 빈 파일 생성 시도 (나중에 업로드 가능)
     if not is_serverless:
         try:
-            try:
-                with open(dst, 'wb') as f:
-                    f.write(b'')
+    try:
+        with open(dst, 'wb') as f:
+            f.write(b'')
             except (OSError, IOError, PermissionError):
                 # Cannot create empty file - skip
                 pass
-        except Exception:
+    except Exception:
             # Any other error - skip
-            pass
+        pass
 
 
 # Models need db to be available - but handle gracefully for Vercel
@@ -670,7 +670,7 @@ def load_user(user_id):
             
             # 그 다음 Member에서 찾기 (일반 사용자)
             try:
-                return db.session.get(Member, int(user_id))
+            return db.session.get(Member, int(user_id))
             except Exception:
                 pass
         return None
@@ -717,7 +717,7 @@ def init_db_and_assets():
             import traceback
             sys.stderr.write(traceback.format_exc())
         except Exception:
-            print(f"Warning: Logo setup failed: {e}")
+        print(f"Warning: Logo setup failed: {e}")
         # Continue - logo is not critical for app functionality
         pass
 
@@ -859,7 +859,7 @@ def init_db_and_assets():
                 existing_admin_username = db.session.query(Member).filter(
                     Member.username == admin_username,
                     Member.id != admin.id
-                ).first()
+        ).first()
                 
                 if existing_admin_username:
                     # 'admin' username이 다른 레코드에 있음 - 기존 레코드 사용
@@ -885,25 +885,25 @@ def init_db_and_assets():
                 admin.username = admin_username
             else:
                 # 새로 생성 가능
-                admin = Member(
-                    username=admin_username,
-                    company_name='부산자동차매매사업자조합',
+            admin = Member(
+                username=admin_username,
+                company_name='부산자동차매매사업자조합',
                     business_number=admin_business_number,
-                    representative='관리자',
-                    approval_status='승인',
-                    role='admin',
-                )
-                admin.set_password(admin_password)
-                db.session.add(admin)
+                representative='관리자',
+                approval_status='승인',
+                role='admin',
+            )
+            admin.set_password(admin_password)
+            db.session.add(admin)
                 if not safe_commit():
                     raise Exception("Failed to commit admin account creation")
-                print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
+            print(f'관리자 계정이 생성되었습니다. 아이디: {admin_username}, 비밀번호: {admin_password}')
                 return  # 성공적으로 생성했으므로 종료
         
-        # 기존 관리자 계정 업데이트
+            # 기존 관리자 계정 업데이트
         needs_update = False
         
-        if admin.username != admin_username:
+            if admin.username != admin_username:
             # username이 다른 경우, 중복 확인
             existing_username = db.session.query(Member).filter(
                 Member.username == admin_username,
@@ -925,16 +925,16 @@ def init_db_and_assets():
                 admin.business_number = admin_business_number
                 needs_update = True
         
-        if not getattr(admin, 'role', None) or admin.role != 'admin':
-            admin.role = 'admin'
+            if not getattr(admin, 'role', None) or admin.role != 'admin':
+                admin.role = 'admin'
             needs_update = True
         
-        if admin.approval_status != '승인':
-            admin.approval_status = '승인'
+            if admin.approval_status != '승인':
+                admin.approval_status = '승인'
             needs_update = True
         
         # 비밀번호는 항상 업데이트
-        admin.set_password(admin_password)
+            admin.set_password(admin_password)
         needs_update = True
         
         if needs_update:
@@ -1113,10 +1113,10 @@ def admin_required(view):
             # Check admin role
             user_role = getattr(current_user, 'role', 'member')
             if user_role != 'admin':
-                flash('관리자만 접근 가능합니다.', 'warning')
-                return redirect(url_for('dashboard'))
+            flash('관리자만 접근 가능합니다.', 'warning')
+            return redirect(url_for('dashboard'))
             
-            return view(*args, **kwargs)
+        return view(*args, **kwargs)
         except Exception as e:
             # If any error occurs in the decorator, log and redirect
             try:
@@ -1247,7 +1247,7 @@ def ensure_initialized():
             try:
                 import sys
                 sys.stderr.write(f"Warning: Initialization failed: {e}\n")
-                import traceback
+            import traceback
                 sys.stderr.write(traceback.format_exc())
             except Exception:
                 pass
@@ -1272,8 +1272,8 @@ if app is not None:
                 using_ephemeral_db = bool(is_serverless and db_uri.startswith('sqlite:///'))
             except Exception:
                 using_ephemeral_db = False
-            return {
-                'tzlocal': tzlocal,
+        return {
+            'tzlocal': tzlocal,
                 'ephemeral_db': using_ephemeral_db,
             }
         except Exception:
@@ -1381,10 +1381,10 @@ def favicon():
         
         for logo_path in logo_paths:
             try:
-                if os.path.exists(logo_path):
+    if os.path.exists(logo_path):
                     file_size = os.path.getsize(logo_path)
                     if file_size > 0:
-                        return send_file(logo_path, mimetype='image/png')
+        return send_file(logo_path, mimetype='image/png')
             except (OSError, IOError, PermissionError) as e:
                 # File system errors - skip this path
                 try:
@@ -1547,7 +1547,7 @@ def debug_template_check():
 @app.route('/login/<int:partner_id>', methods=['GET', 'POST'])
 def login(partner_id=None):
     try:
-        ensure_initialized()  # Initialize on first request for Vercel
+    ensure_initialized()  # Initialize on first request for Vercel
         
         # 파트너그룹 정보 가져오기
         partner_group = None
@@ -1571,38 +1571,48 @@ def login(partner_id=None):
             return render_template('auth/login.html', partner_group=partner_group, partner_groups=partner_groups)
         
         # POST 요청: 로그인 처리
-        if request.method == 'POST':
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '')
-            form_partner_id = request.form.get('partner_id', type=int)
-            
-            # 폼에서 파트너그룹 ID를 받았으면 사용
-            if form_partner_id:
-                partner_group_id = form_partner_id
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        raw_partner_id = request.form.get('partner_id')
+        
+        # 폼에서 파트너그룹 선택 처리 ('super' 또는 정수 ID)
+        if raw_partner_id:
+            if str(raw_partner_id).strip().lower() == 'super':
+                partner_group_id = None
+                partner_group = None
+                session['is_super_admin_selected'] = True
+            else:
                 try:
-                    partner_group = db.session.get(PartnerGroup, partner_group_id)
-                except Exception:
-                    pass
-            
-            if not username or not password:
-                flash('아이디와 비밀번호를 입력해주세요.', 'warning')
-                # 모든 파트너그룹 목록 가져오기
-                partner_groups = []
-                if db is not None:
+                    form_partner_id = int(raw_partner_id)
+                    partner_group_id = form_partner_id
                     try:
-                        partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+                        partner_group = db.session.get(PartnerGroup, partner_group_id)
                     except Exception:
                         pass
-                return render_template('auth/login.html', partner_group=partner_group, partner_groups=partner_groups)
+                except Exception:
+                    partner_group_id = None
+                    partner_group = None
+        
+        if not username or not password:
+            flash('아이디와 비밀번호를 입력해주세요.', 'warning')
+            # 모든 파트너그룹 목록 가져오기
+            partner_groups = []
+            if db is not None:
+                try:
+                    partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+                except Exception:
+                    pass
+            return render_template('auth/login.html', partner_group=partner_group, partner_groups=partner_groups)
             
-            if db is None:
+        if db is None:
                 try:
                     import sys
                     sys.stderr.write("Login error: db is None\n")
                 except Exception:
                     pass
-                flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
-                return render_template('auth/login.html')
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return render_template('auth/login.html')
             
             # Ensure models are defined
             try:
@@ -1618,7 +1628,7 @@ def login(partner_id=None):
                 return render_template('auth/login.html')
             
             try:
-                # 먼저 총괄관리자 계정인지 확인
+                # 먼저 총괄관리자 계정인지 확인 (선택이 'super'이거나 자격증명이 일치하면 상부 프로그램 로그인)
                 try:
                     super_admin = db.session.query(AdminUser).filter_by(username=username).first()
                     if super_admin and super_admin.check_password(password):
@@ -1640,7 +1650,7 @@ def login(partner_id=None):
                             partner_group_id=partner_group_id
                         ).first()
                     else:
-                        user = db.session.query(Member).filter_by(username=username).first()
+        user = db.session.query(Member).filter_by(username=username).first()
                 except Exception as query_err:
                     try:
                         import sys
@@ -1691,15 +1701,15 @@ def login(partner_id=None):
                         try:
                             approval_status = getattr(user, 'approval_status', None)
                             if approval_status != '승인':
-                                flash('관리자 승인 후 로그인 가능합니다.', 'warning')
+                flash('관리자 승인 후 로그인 가능합니다.', 'warning')
                                 if partner_group_id:
                                     return redirect(url_for('login', partner_id=partner_group_id))
-                                return redirect(url_for('login'))
+                return redirect(url_for('login'))
                             
                             # Login user
                             try:
-                                login_user(user)
-                                return redirect(url_for('dashboard'))
+            login_user(user)
+            return redirect(url_for('dashboard'))
                             except Exception as login_err:
                                 try:
                                     import sys
@@ -1717,7 +1727,7 @@ def login(partner_id=None):
                             flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
                             return render_template('auth/login.html', partner_group=partner_group)
                     else:
-                        flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+        flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
                 else:
                     flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
                 
@@ -1745,7 +1755,7 @@ def login(partner_id=None):
             pass
         flash('로그인 페이지 로드 중 오류가 발생했습니다.', 'danger')
         try:
-            return render_template('auth/login.html')
+    return render_template('auth/login.html')
         except Exception:
             return "로그인 페이지를 불러올 수 없습니다.", 500
 
@@ -1761,7 +1771,7 @@ def logout():
 @app.route('/register/<int:partner_id>', methods=['GET', 'POST'])
 def register(partner_id=None):
     try:
-        ensure_initialized()  # Initialize on first request for Vercel
+    ensure_initialized()  # Initialize on first request for Vercel
         
         # 파트너그룹 정보 가져오기
         partner_group = None
@@ -1778,7 +1788,7 @@ def register(partner_id=None):
             return render_template('auth/register.html', partner_group=partner_group)
         
         # POST 요청: 회원가입 처리
-        if request.method == 'POST':
+    if request.method == 'POST':
             form_partner_id = request.form.get('partner_id', type=int)
             if form_partner_id:
                 partner_group_id = form_partner_id
@@ -1786,20 +1796,20 @@ def register(partner_id=None):
                     partner_group = db.session.get(PartnerGroup, partner_group_id)
                 except Exception:
                     pass
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '')
-            company_name = request.form.get('company_name', '').strip()
-            address = request.form.get('address', '').strip()
-            business_number = request.form.get('business_number', '').strip()
-            corporation_number = request.form.get('corporation_number', '').strip()
-            representative = request.form.get('representative', '').strip()
-            phone = request.form.get('phone', '').strip()
-            mobile = request.form.get('mobile', '').strip()
-            email = request.form.get('email', '').strip()
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        company_name = request.form.get('company_name', '').strip()
+        address = request.form.get('address', '').strip()
+        business_number = request.form.get('business_number', '').strip()
+        corporation_number = request.form.get('corporation_number', '').strip()
+        representative = request.form.get('representative', '').strip()
+        phone = request.form.get('phone', '').strip()
+        mobile = request.form.get('mobile', '').strip()
+        email = request.form.get('email', '').strip()
 
-            if db is None:
-                flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
-                return render_template('auth/register.html')
+        if db is None:
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return render_template('auth/register.html')
             
             try:
                 # Check for duplicate username (파트너그룹별로 중복 확인)
@@ -1807,7 +1817,7 @@ def register(partner_id=None):
                 if partner_group_id:
                     query = query.filter_by(partner_group_id=partner_group_id)
                 if query.first():
-                    flash('이미 존재하는 아이디입니다.', 'danger')
+            flash('이미 존재하는 아이디입니다.', 'danger')
                     return render_template('auth/register.html', partner_group=partner_group)
                 
                 # Check for duplicate business number (파트너그룹별로 중복 확인)
@@ -1816,7 +1826,7 @@ def register(partner_id=None):
                     if partner_group_id:
                         query = query.filter_by(partner_group_id=partner_group_id)
                     if query.first():
-                        flash('이미 등록된 사업자번호입니다.', 'danger')
+            flash('이미 등록된 사업자번호입니다.', 'danger')
                         return render_template('auth/register.html', partner_group=partner_group)
             except Exception as e:
                 try:
@@ -1825,22 +1835,22 @@ def register(partner_id=None):
                 except Exception:
                     pass
                 flash('회원 정보 확인 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
-                return render_template('auth/register.html')
+            return render_template('auth/register.html')
 
-            # 파일 업로드 처리
-            registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
-            if not is_serverless and 'registration_cert' in request.files:
+        # 파일 업로드 처리
+        registration_cert_path = None # Vercel 환경에서는 파일 업로드 비활성화
+        if not is_serverless and 'registration_cert' in request.files:
                 try:
-                    file = request.files['registration_cert']
-                    if file and file.filename:
-                        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
-                        file_ext = os.path.splitext(file.filename)[1].lower()
-                        if file_ext in allowed_extensions:
-                            timestamp = datetime.now(KST).strftime('%Y%m%d_%H%M%S')
-                            filename = f"{business_number}_{timestamp}{file_ext}"
-                            filepath = os.path.join(UPLOAD_DIR, filename)
-                            file.save(filepath)
-                            registration_cert_path = os.path.join('uploads', filename)
+            file = request.files['registration_cert']
+            if file and file.filename:
+                allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
+                file_ext = os.path.splitext(file.filename)[1].lower()
+                if file_ext in allowed_extensions:
+                    timestamp = datetime.now(KST).strftime('%Y%m%d_%H%M%S')
+                    filename = f"{business_number}_{timestamp}{file_ext}"
+                    filepath = os.path.join(UPLOAD_DIR, filename)
+                    file.save(filepath)
+                    registration_cert_path = os.path.join('uploads', filename)
                 except Exception as e:
                     try:
                         import sys
@@ -1850,29 +1860,29 @@ def register(partner_id=None):
                     # Continue without file - not critical
             
             try:
-                member = Member(
-                    username=username,
-                    company_name=company_name,
-                    address=address,
-                    business_number=business_number,
-                    corporation_number=corporation_number,
-                    representative=representative,
-                    phone=phone,
-                    mobile=mobile,
-                    email=email,
-                    registration_cert_path=registration_cert_path,
-                    approval_status='신청',
+        member = Member(
+            username=username,
+            company_name=company_name,
+            address=address,
+            business_number=business_number,
+            corporation_number=corporation_number,
+            representative=representative,
+            phone=phone,
+            mobile=mobile,
+            email=email,
+            registration_cert_path=registration_cert_path,
+            approval_status='신청',
                     partner_group_id=partner_group_id,
-                )
-                member.set_password(password)
-                db.session.add(member)
+        )
+        member.set_password(password)
+        db.session.add(member)
                 if not safe_commit():
                     flash('회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
                     return render_template('auth/register.html', partner_group=partner_group)
-                flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
+        flash('신청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
                 if partner_group_id:
                     return redirect(url_for('login', partner_id=partner_group_id))
-                return redirect(url_for('login'))
+        return redirect(url_for('login'))
             except Exception as e:
                 try:
                     import sys
@@ -1891,7 +1901,7 @@ def register(partner_id=None):
             pass
         flash('회원가입 페이지 로드 중 오류가 발생했습니다.', 'danger')
         try:
-            return render_template('auth/register.html')
+    return render_template('auth/register.html')
         except Exception:
             return "회원가입 페이지를 불러올 수 없습니다.", 500
 
@@ -1900,8 +1910,8 @@ def register(partner_id=None):
 @login_required
 def dashboard():
     try:
-        ensure_initialized()  # Ensure initialization
-        return render_template('dashboard.html')
+    ensure_initialized()  # Ensure initialization
+    return render_template('dashboard.html')
     except Exception as e:
         try:
             import sys
@@ -2038,7 +2048,7 @@ def insurance():
                             if not safe_commit():
                                 flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
                             else:
-                                flash('삭제되었습니다.', 'success')
+                            flash('삭제되었습니다.', 'success')
                         else:
                             flash('조합승인 후에는 삭제할 수 없습니다.', 'warning')
                     elif action == 'save':
@@ -2055,7 +2065,7 @@ def insurance():
                             if not safe_commit():
                                 flash('저장 처리 중 오류가 발생했습니다.', 'danger')
                             else:
-                                flash('저장되었습니다.', 'success')
+                            flash('저장되었습니다.', 'success')
                         else:
                             flash('조합승인 후에는 수정할 수 없습니다.', 'warning')
             return redirect(url_for('insurance'))
@@ -2072,7 +2082,7 @@ def insurance():
         partner_group_id = None
         if hasattr(current_user, 'partner_group_id'):
             partner_group_id = current_user.partner_group_id
-        
+
         app_row = InsuranceApplication(
             desired_start_date=desired_start_date,
             insured_code=current_user.business_number or '',
@@ -2238,7 +2248,7 @@ def insurance_upload():
         if not safe_commit():
             flash('업로드 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
         else:
-            flash(f'{count}건 업로드되었습니다.', 'success')
+        flash(f'{count}건 업로드되었습니다.', 'success')
     except Exception as e:
         flash('업로드 중 오류가 발생했습니다.', 'danger')
     return redirect(url_for('insurance'))
@@ -2268,7 +2278,7 @@ def admin_members():
                     if not safe_commit():
                         flash('승인 상태 변경 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('승인 상태가 변경되었습니다.', 'success')
+                    flash('승인 상태가 변경되었습니다.', 'success')
                 elif action == 'save':
                     m.company_name = request.form.get('company_name', '').strip()
                     m.address = request.form.get('address', '').strip()
@@ -2282,14 +2292,14 @@ def admin_members():
                     if not safe_commit():
                         flash('저장 처리 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('저장되었습니다.', 'success')
+                    flash('저장되었습니다.', 'success')
                     return redirect(url_for('admin_members'))
                 elif action == 'delete':
                     db.session.delete(m)
                     if not safe_commit():
                         flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('삭제되었습니다.', 'success')
+                    flash('삭제되었습니다.', 'success')
         else:
             if action == 'create':
                 username = request.form.get('username', '').strip()
@@ -2327,7 +2337,7 @@ def admin_members():
                     if not safe_commit():
                         flash('회원 추가 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('회원이 추가되었습니다.', 'success')
+                    flash('회원이 추가되었습니다.', 'success')
                 return redirect(url_for('admin_members'))
 
     edit_id = request.args.get('edit_id')
@@ -2394,7 +2404,7 @@ def admin_members_upload():
         if not safe_commit():
             flash('일괄 업로드 처리 중 오류가 발생했습니다.', 'danger')
         else:
-            flash(f'일괄 업로드 완료: 추가 {created}건, 건너뜀 {skipped}건', 'success')
+        flash(f'일괄 업로드 완료: 추가 {created}건, 건너뜀 {skipped}건', 'success')
     except Exception:
         flash('업로드 처리 중 오류가 발생했습니다.', 'danger')
     return redirect(url_for('admin_members'))
@@ -2434,7 +2444,7 @@ def admin_insurance():
             if not safe_commit():
                 flash('일괄 승인 처리 중 오류가 발생했습니다.', 'danger')
             else:
-                flash('일괄 승인되었습니다.', 'success')
+            flash('일괄 승인되었습니다.', 'success')
         else:
             # 단건 수정/삭제
             action = request.form.get('action')
@@ -2464,20 +2474,20 @@ def admin_insurance():
                     if not safe_commit():
                         flash('승인 처리 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('승인되었습니다.', 'success')
-                        print(f"DEBUG: Approval completed for row {row.id}")  # 디버그 로그
+                    flash('승인되었습니다.', 'success')
+                    print(f"DEBUG: Approval completed for row {row.id}")  # 디버그 로그
                 elif action == 'delete':
                     db.session.delete(row)
                     if not safe_commit():
                         flash('삭제 처리 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('삭제되었습니다.', 'success')
+                    flash('삭제되었습니다.', 'success')
                 elif action == 'save_memo':
                     row.memo = request.form.get('memo', row.memo)
                     if not safe_commit():
                         flash('비고 저장 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('비고가 저장되었습니다.', 'success')
+                    flash('비고가 저장되었습니다.', 'success')
                 elif action == 'save':
                     # 편집 모드에서 저장
                     row.desired_start_date = parse_date(request.form.get('desired_start_date'))
@@ -2496,7 +2506,7 @@ def admin_insurance():
                     if not safe_commit():
                         flash('저장 처리 중 오류가 발생했습니다.', 'danger')
                     else:
-                        flash('저장되었습니다.', 'success')
+                    flash('저장되었습니다.', 'success')
                     return redirect(url_for('admin_insurance', 
                                            req_start=request.args.get('req_start'),
                                            req_end=request.args.get('req_end'),
@@ -2821,7 +2831,7 @@ def handle_unexpected_error(e):
     
     # Also log via Flask logger if available
     try:
-        app.logger.exception("Unhandled exception")
+    app.logger.exception("Unhandled exception")
     except Exception:
         pass
     
@@ -2831,8 +2841,8 @@ def handle_unexpected_error(e):
         
         if has_request_context():
             # Only flash if we're in a request context
-            try:
-                flash('서버 처리 중 오류가 발생했습니다.', 'danger')
+    try:
+        flash('서버 처리 중 오류가 발생했습니다.', 'danger')
             except Exception:
                 pass
             
@@ -2853,8 +2863,8 @@ def handle_unexpected_error(e):
                         pass
                 else:
                     try:
-                        return redirect(url_for('dashboard'))
-                    except Exception:
+        return redirect(url_for('dashboard'))
+    except Exception:
                         pass
             except Exception:
                 pass
@@ -2913,6 +2923,8 @@ def super_partner_groups():
             mobile = request.form.get('mobile', '').strip()
             address = request.form.get('address', '').strip()
             memo = request.form.get('memo', '').strip()
+            admin_username_input = request.form.get('admin_username', '').strip()
+            admin_password_input = request.form.get('admin_password', '').strip()
             
             # 필수 항목 확인
             if not name or not business_number or not representative or not phone:
@@ -2973,8 +2985,8 @@ def super_partner_groups():
                 # 파트너그룹 생성 시 하위 프로그램 자동 복제 및 초기화
                 try:
                     # 1. 파트너그룹별 기본 관리자 계정 생성 (하위 프로그램 관리자)
-                    admin_username = f"{name}_admin"
-                    admin_password = f"{business_number[-4:]}"  # 사업자번호 마지막 4자리
+                    admin_username = admin_username_input or f"{name}_admin"
+                    admin_password = admin_password_input or f"{business_number[-4:]}"  # 사업자번호 마지막 4자리
                     
                     # 기존 관리자 계정이 있는지 확인
                     existing_admin = db.session.query(Member).filter(
