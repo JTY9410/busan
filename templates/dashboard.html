@@ -1,32 +1,28 @@
 {% extends 'base.html' %}
 {% block title %}대시보드 - 책임보험{% endblock %}
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50 py-8">
+<div class="min-h-screen py-12 animate-fade-in">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Welcome Section -->
-    <div class="mb-10">
-      <div class="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-        <div class="flex items-center justify-between flex-wrap">
+    <div class="mb-12 animate-scale-in">
+      <div class="glass p-8">
+        <div class="flex items-center justify-between flex-wrap gap-6">
           <div>
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">
+            <h1 class="text-4xl font-semibold text-[#1a1a1a] mb-3 tracking-tight">
               안녕하세요, {{ current_user.company_name or current_user.username }}님
             </h1>
-            <p class="text-gray-600 text-lg">
+            <p class="text-[#6b6b6b] text-base">
               부산자동차매매사업자조합 책임보험 관리 시스템에 오신 것을 환영합니다
             </p>
           </div>
           <div class="mt-4 sm:mt-0">
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 shadow-md">
-              <div class="text-white text-sm font-medium mb-1">현재 상태</div>
-              <div class="text-white text-2xl font-bold">
+            <div class="px-6 py-4 bg-white border border-[#e5e5e5] rounded-lg">
+              <div class="text-xs font-medium text-[#6b6b6b] mb-2 uppercase tracking-wide">현재 상태</div>
+              <div class="text-lg font-semibold flex items-center text-[#1a1a1a]">
                 {% if current_user.approval_status == '승인' %}
-                  <span class="flex items-center">
-                    <i class="bi bi-check-circle-fill mr-2"></i>승인 완료
-                  </span>
+                  <i class="bi bi-check-circle-fill mr-2 text-[#8b7355]"></i>승인 완료
                 {% else %}
-                  <span class="flex items-center">
-                    <i class="bi bi-clock-history mr-2"></i>{{ current_user.approval_status }}
-                  </span>
+                  <i class="bi bi-clock-history mr-2 text-[#6b6b6b]"></i>{{ current_user.approval_status }}
                 {% endif %}
               </div>
             </div>
@@ -38,76 +34,76 @@
     <!-- Main Action Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       <!-- 책임보험가입 Card -->
-      <a href="{{ url_for('insurance') }}" class="group relative overflow-hidden bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 rounded-full -mr-16 -mt-16 group-hover:opacity-20 transition-opacity duration-300"></div>
-        <div class="p-8 relative z-10">
-          <div class="flex items-center justify-between mb-6">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg">
-              <i class="bi bi-shield-check text-3xl text-white"></i>
+      <a href="{{ url_for('insurance') }}" class="group glass card-hover block">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div class="w-12 h-12 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-shield-check text-2xl text-white"></i>
             </div>
-            <i class="bi bi-arrow-right text-2xl text-gray-400 group-hover:text-blue-500 group-hover:translate-x-2 transition-all duration-300"></i>
+            <i class="bi bi-arrow-right text-xl text-[#9b9b9b] group-hover:text-[#1a1a1a] transition-colors duration-300"></i>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">
+          <h3 class="text-xl font-semibold text-[#1a1a1a] mb-3 tracking-tight">
             책임보험가입
           </h3>
-          <p class="text-gray-600 text-sm leading-relaxed mb-4">
+          <p class="text-[#6b6b6b] text-sm leading-relaxed mb-6">
             자동차 책임보험 가입 신청 및 관리를 진행할 수 있습니다
           </p>
-          <div class="flex items-center text-blue-600 font-medium text-sm">
-            <span>바로가기</span>
-            <i class="bi bi-chevron-right ml-1"></i>
+          <div class="mt-4">
+            <div class="btn-action bg-[#1a1a1a] text-white hover:bg-[#4a4a4a]">
+              <span>바로가기</span>
+              <i class="bi bi-arrow-right"></i>
+            </div>
           </div>
         </div>
-        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
       </a>
 
       <!-- 책임보험약관 Card -->
-      <a href="{{ url_for('terms') }}" class="group relative overflow-hidden bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-400 to-indigo-600 opacity-10 rounded-full -mr-16 -mt-16 group-hover:opacity-20 transition-opacity duration-300"></div>
-        <div class="p-8 relative z-10">
-          <div class="flex items-center justify-between mb-6">
-            <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl shadow-lg">
-              <i class="bi bi-file-text text-3xl text-white"></i>
+      <a href="{{ url_for('terms') }}" class="group glass card-hover block">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div class="w-12 h-12 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-file-text text-2xl text-white"></i>
             </div>
-            <i class="bi bi-arrow-right text-2xl text-gray-400 group-hover:text-indigo-500 group-hover:translate-x-2 transition-all duration-300"></i>
+            <i class="bi bi-arrow-right text-xl text-[#9b9b9b] group-hover:text-[#1a1a1a] transition-colors duration-300"></i>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors duration-300">
+          <h3 class="text-xl font-semibold text-[#1a1a1a] mb-3 tracking-tight">
             책임보험약관
           </h3>
-          <p class="text-gray-600 text-sm leading-relaxed mb-4">
+          <p class="text-[#6b6b6b] text-sm leading-relaxed mb-6">
             책임보험 약관 및 상품 안내 자료를 확인할 수 있습니다
           </p>
-          <div class="flex items-center text-indigo-600 font-medium text-sm">
-            <span>바로가기</span>
-            <i class="bi bi-chevron-right ml-1"></i>
+          <div class="mt-4">
+            <div class="btn-action bg-[#1a1a1a] text-white hover:bg-[#4a4a4a]">
+              <span>바로가기</span>
+              <i class="bi bi-arrow-right"></i>
+            </div>
           </div>
         </div>
-        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-indigo-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
       </a>
 
       <!-- 관리자페이지 Card -->
       {% if current_user.is_authenticated and (current_user.role|default('member')) == 'admin' %}
-      <a href="{{ url_for('admin_home') }}" class="group relative overflow-hidden bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-700 to-gray-900 opacity-10 rounded-full -mr-16 -mt-16 group-hover:opacity-20 transition-opacity duration-300"></div>
-        <div class="p-8 relative z-10">
-          <div class="flex items-center justify-between mb-6">
-            <div class="bg-gradient-to-br from-gray-700 to-gray-900 p-4 rounded-xl shadow-lg">
-              <i class="bi bi-gear text-3xl text-white"></i>
+      <a href="{{ url_for('admin_home') }}" class="group glass card-hover block">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div class="w-12 h-12 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-gear text-2xl text-white"></i>
             </div>
-            <i class="bi bi-arrow-right text-2xl text-gray-400 group-hover:text-gray-700 group-hover:translate-x-2 transition-all duration-300"></i>
+            <i class="bi bi-arrow-right text-xl text-[#9b9b9b] group-hover:text-[#1a1a1a] transition-colors duration-300"></i>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors duration-300">
+          <h3 class="text-xl font-semibold text-[#1a1a1a] mb-3 tracking-tight">
             관리자페이지
           </h3>
-          <p class="text-gray-600 text-sm leading-relaxed mb-4">
+          <p class="text-[#6b6b6b] text-sm leading-relaxed mb-6">
             회원 승인, 보험 승인, 정산 등의 관리 업무를 수행합니다
           </p>
-          <div class="flex items-center text-gray-700 font-medium text-sm">
-            <span>바로가기</span>
-            <i class="bi bi-chevron-right ml-1"></i>
+          <div class="mt-4">
+            <div class="btn-action bg-[#1a1a1a] text-white hover:bg-[#4a4a4a]">
+              <span>바로가기</span>
+              <i class="bi bi-arrow-right"></i>
+            </div>
           </div>
         </div>
-        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gray-700 to-gray-900 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
       </a>
       {% endif %}
     </div>
@@ -115,78 +111,69 @@
     <!-- Quick Stats / Info Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <!-- 사용자 정보 Card -->
-      <div class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-          <h4 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">회원 정보</h4>
-          <i class="bi bi-person-circle text-xl text-gray-400"></i>
-        </div>
-        <div class="space-y-2">
-          <div class="text-sm text-gray-600">
-            <span class="font-medium">사업자번호:</span>
-            <span class="ml-2">{{ current_user.business_number or '미등록' }}</span>
+      <div class="glass card-hover">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h4 class="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider">회원 정보</h4>
+            <div class="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-person-circle text-white"></i>
+            </div>
           </div>
-          <div class="text-sm text-gray-600">
-            <span class="font-medium">이메일:</span>
-            <span class="ml-2">{{ current_user.email or '미등록' }}</span>
+          <div class="space-y-3">
+            <div class="flex items-center text-sm">
+              <span class="font-medium text-[#6b6b6b] w-24">사업자번호:</span>
+              <span class="text-[#1a1a1a] font-medium">{{ current_user.business_number or '미등록' }}</span>
+            </div>
+            <div class="flex items-center text-sm">
+              <span class="font-medium text-[#6b6b6b] w-24">이메일:</span>
+              <span class="text-[#1a1a1a] font-medium">{{ current_user.email or '미등록' }}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 시스템 정보 Card -->
-      <div class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-          <h4 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">시스템 정보</h4>
-          <i class="bi bi-info-circle text-xl text-gray-400"></i>
-        </div>
-        <div class="space-y-2">
-          <div class="text-sm text-gray-600">
-            <span class="font-medium">서비스:</span>
-            <span class="ml-2">책임보험 관리</span>
+      <div class="glass card-hover">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h4 class="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider">시스템 정보</h4>
+            <div class="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-info-circle text-white"></i>
+            </div>
           </div>
-          <div class="text-sm text-gray-600">
-            <span class="font-medium">버전:</span>
-            <span class="ml-2">v1.0</span>
+          <div class="space-y-3">
+            <div class="flex items-center text-sm">
+              <span class="font-medium text-[#6b6b6b] w-20">서비스:</span>
+              <span class="text-[#1a1a1a] font-medium">책임보험 관리</span>
+            </div>
+            <div class="flex items-center text-sm">
+              <span class="font-medium text-[#6b6b6b] w-20">버전:</span>
+              <span class="text-[#1a1a1a] font-medium">v1.0</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 도움말 Card -->
-      <div class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-          <h4 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">도움말</h4>
-          <i class="bi bi-question-circle text-xl text-gray-400"></i>
-        </div>
-        <div class="space-y-2">
-          <p class="text-sm text-gray-600 leading-relaxed">
-            문의사항이 있으시면 관리자에게 연락해 주세요
-          </p>
+      <div class="glass card-hover">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h4 class="text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider">도움말</h4>
+            <div class="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+              <i class="bi bi-question-circle text-white"></i>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-sm text-[#6b6b6b] leading-relaxed">
+              문의사항이 있으시면 관리자에게 연락해 주세요
+            </p>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-  /* Additional smooth animations */
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .grid > * {
-    animation: fadeInUp 0.6s ease-out;
-  }
-
-  .grid > *:nth-child(1) { animation-delay: 0.1s; }
-  .grid > *:nth-child(2) { animation-delay: 0.2s; }
-  .grid > *:nth-child(3) { animation-delay: 0.3s; }
-</style>
 {% endblock %}
 
 
