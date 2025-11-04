@@ -65,6 +65,7 @@
           <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">차량등록일자</th>
           <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">보험료</th>
           <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">조합승인</th>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">보험증권</th>
           <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
           <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
         </tr>
@@ -129,6 +130,26 @@
             </td>
             <td class="px-4 py-2 whitespace-nowrap">9,500</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ '승인' if r.approved_at else '미승인' }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">
+              {% if edit_id == r.id|string %}
+                <div class="space-y-2">
+                  <input type="text" name="insurance_policy_url" class="form-input block w-full text-sm" value="{{ r.insurance_policy_url or '' }}" placeholder="보험증권 URL" form="edit_form_{{ r.id }}">
+                  <input type="text" name="insurance_policy_path" class="form-input block w-full text-sm" value="{{ r.insurance_policy_path or '' }}" placeholder="보험증권 파일 경로" form="edit_form_{{ r.id }}">
+                </div>
+              {% elif r.insurance_policy_path or r.insurance_policy_url %}
+                {% if r.insurance_policy_url %}
+                  <a href="{{ r.insurance_policy_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline inline-flex items-center">
+                    <i class="bi bi-file-earmark-pdf mr-1"></i>보험증권 보기
+                  </a>
+                {% elif r.insurance_policy_path %}
+                  <a href="{{ url_for('serve_insurance_policy', insurance_id=r.id) }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline inline-flex items-center">
+                    <i class="bi bi-file-earmark-pdf mr-1"></i>보험증권 보기
+                  </a>
+                {% endif %}
+              {% else %}
+                <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if edit_id == r.id|string %}
                 <input type="text" name="memo" class="form-input block w-full text-sm" value="{{ r.memo or '' }}" form="edit_form_{{ r.id }}">

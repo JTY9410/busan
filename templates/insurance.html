@@ -127,6 +127,7 @@
               <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차량등록일자</th>
               <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">보험료</th>
               <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">현재상태</th>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">보험증권</th>
               <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">비고</th>
               <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">작업</th>
             </tr>
@@ -170,6 +171,21 @@
                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">종료</span>
                   {% else %}
                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{{ r.status }}</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">
+                  {% if r.insurance_policy_path or r.insurance_policy_url %}
+                    {% if r.insurance_policy_url %}
+                      <a href="{{ r.insurance_policy_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline inline-flex items-center">
+                        <i class="bi bi-file-earmark-pdf mr-1"></i>보험증권
+                      </a>
+                    {% elif r.insurance_policy_path %}
+                      <a href="{{ url_for('serve_insurance_policy', insurance_id=r.id) }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline inline-flex items-center">
+                        <i class="bi bi-file-earmark-pdf mr-1"></i>보험증권
+                      </a>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-gray-400">-</span>
                   {% endif %}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">

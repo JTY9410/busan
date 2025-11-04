@@ -54,6 +54,18 @@
             </td>
           </tr>
         {% endfor %}
+        {% if settlements|length > 0 %}
+        <tr class="bg-gray-100 font-bold border-t-2 border-gray-300">
+          <td class="px-4 py-3 whitespace-nowrap" colspan="2"><strong>합계</strong></td>
+          <td class="px-4 py-3 whitespace-nowrap text-right"><strong>{{ total_count|default(0) }}</strong></td>
+          <td class="px-4 py-3 whitespace-nowrap text-right"><strong>{{ '{:,}'.format(total_amount|default(0)) }}</strong></td>
+          <td class="px-4 py-3 whitespace-nowrap" colspan="3"></td>
+        </tr>
+        {% elif settlements|length == 0 and year and month %}
+        <tr class="bg-gray-50">
+          <td class="px-4 py-3 text-center text-gray-500" colspan="7">해당 기간의 데이터가 없습니다.</td>
+        </tr>
+        {% endif %}
       </tbody>
     </table>
   </div>

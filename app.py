@@ -542,6 +542,8 @@ def define_models():
             premium = db.Column(db.Integer, default=9500)  # 보험료 9500 고정
             status = db.Column(db.String(32), default='신청')  # 신청, 조합승인, 가입, 종료
             memo = db.Column(db.String(255))  # 비고
+            insurance_policy_path = db.Column(db.String(512))  # 보험증권 파일 경로 (로컬 저장)
+            insurance_policy_url = db.Column(db.String(512))  # 보험증권 URL (외부 링크)
             created_by_member_id = db.Column(db.Integer, db.ForeignKey('member.id'))
 
             __table_args__ = (
@@ -666,19 +668,80 @@ def init_db_and_assets():
         # Continue - logo is not critical for app functionality
         pass
 
-    # 스키마 보정: role 컬럼이 없으면 추가 (SQLite만)
+    # 스키마 보정: 컬럼이 없으면 추가
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect
         db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        
         if 'sqlite' in db_uri:
+            # Member 테이블: role 컬럼 추가 (SQLite)
             res = db.session.execute(text("PRAGMA table_info(member)"))
             cols = [r[1] for r in res.fetchall()]
             if 'role' not in cols:
                 if not is_serverless:  # Vercel 환경이 아니면 스키마 변경
                     db.session.execute(text("ALTER TABLE member ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
                     safe_commit()  # Schema migration - don't show error if it fails
+            
+            # InsuranceApplication 테이블: 보험증권 필드 추가 (SQLite)
+            res = db.session.execute(text("PRAGMA table_info(insurance_application)"))
+            cols = [r[1] for r in res.fetchall()]
+            
+            if 'insurance_policy_path' not in cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN insurance_policy_path TEXT"))
+                        safe_commit()
+                        print("Added insurance_policy_path column to insurance_application table")
+                    except Exception as e:
+                        print(f"Warning: Failed to add insurance_policy_path: {e}")
+            
+            if 'insurance_policy_url' not in cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN insurance_policy_url TEXT"))
+                        safe_commit()
+                        print("Added insurance_policy_url column to insurance_application table")
+                    except Exception as e:
+                        print(f"Warning: Failed to add insurance_policy_url: {e}")
+        elif 'postgresql' in db_uri or 'postgres' in db_uri:
+            # PostgreSQL: 컬럼 존재 여부 확인 후 추가
+            inspector = inspect(db.engine)
+            
+            # Member 테이블: role 컬럼 추가 (PostgreSQL)
+            member_cols = [col['name'] for col in inspector.get_columns('member')]
+            if 'role' not in member_cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE member ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'member'"))
+                        safe_commit()
+                        print("Added role column to member table (PostgreSQL)")
+                    except Exception as e:
+                        print(f"Warning: Failed to add role to member: {e}")
+            
+            # InsuranceApplication 테이블: 보험증권 필드 추가 (PostgreSQL)
+            ins_app_cols = [col['name'] for col in inspector.get_columns('insurance_application')]
+            
+            if 'insurance_policy_path' not in ins_app_cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN insurance_policy_path VARCHAR(512)"))
+                        safe_commit()
+                        print("Added insurance_policy_path column to insurance_application table (PostgreSQL)")
+                    except Exception as e:
+                        print(f"Warning: Failed to add insurance_policy_path: {e}")
+            
+            if 'insurance_policy_url' not in ins_app_cols:
+                if not is_serverless:
+                    try:
+                        db.session.execute(text("ALTER TABLE insurance_application ADD COLUMN insurance_policy_url VARCHAR(512)"))
+                        safe_commit()
+                        print("Added insurance_policy_url column to insurance_application table (PostgreSQL)")
+                    except Exception as e:
+                        print(f"Warning: Failed to add insurance_policy_url: {e}")
     except Exception as e:
         print(f"Warning: Schema migration failed: {e}")
+        import traceback
+        traceback.print_exc()
         pass
     
     # 관리자 계정 생성/업데이트
@@ -1205,6 +1268,62 @@ def serve_logo():
     
     # If no logo found, return 404
     return '', 404
+
+@app.route('/insurance/<int:insurance_id>/policy')
+@login_required
+def serve_insurance_policy(insurance_id):
+    """Serve insurance policy PDF if available"""
+    try:
+        ensure_initialized()
+        if db is None:
+            flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Get insurance application
+        insurance = db.session.get(InsuranceApplication, insurance_id)
+        if not insurance:
+            flash('보험 신청을 찾을 수 없습니다.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Check permission: user can only view their own insurance policies unless admin
+        user_role = getattr(current_user, 'role', 'member')
+        if user_role != 'admin' and insurance.created_by_member_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Check if insurance policy path exists
+        if hasattr(insurance, 'insurance_policy_path') and insurance.insurance_policy_path:
+            policy_path = insurance.insurance_policy_path
+            # Handle both absolute and relative paths
+            if not os.path.isabs(policy_path):
+                # Try different possible locations
+                possible_paths = [
+                    os.path.join(UPLOAD_DIR, policy_path),
+                    os.path.join(BASE_DIR, 'uploads', policy_path),
+                    os.path.join(BASE_DIR, policy_path),
+                ]
+            else:
+                possible_paths = [policy_path]
+            
+            for path in possible_paths:
+                try:
+                    if os.path.exists(path) and os.path.isfile(path):
+                        return send_file(path, mimetype='application/pdf', as_attachment=False)
+                except (OSError, IOError, PermissionError):
+                    continue
+        
+        # If policy not found, return 404
+        flash('보험증권 파일을 찾을 수 없습니다.', 'warning')
+        return redirect(url_for('insurance'))
+        
+    except Exception as e:
+        try:
+            import sys
+            sys.stderr.write(f"Error in serve_insurance_policy: {e}\n")
+        except Exception:
+            pass
+        flash('보험증권 조회 중 오류가 발생했습니다.', 'danger')
+        return redirect(url_for('dashboard'))
 
 @app.route('/debug/template-check')
 def debug_template_check():
@@ -2015,6 +2134,11 @@ def admin_insurance():
                     row.start_at = parse_datetime(request.form.get('start_at')) # 가입시간 수정 추가
                     row.end_at = parse_datetime(request.form.get('end_at'))   # 종료시간 수정 추가
                     row.memo = request.form.get('memo', '').strip()
+                    # 보험증권 정보 저장
+                    if hasattr(row, 'insurance_policy_path'):
+                        row.insurance_policy_path = request.form.get('insurance_policy_path', '').strip() or None
+                    if hasattr(row, 'insurance_policy_url'):
+                        row.insurance_policy_url = request.form.get('insurance_policy_url', '').strip() or None
                     if not safe_commit():
                         flash('저장 처리 중 오류가 발생했습니다.', 'danger')
                     else:
@@ -2192,8 +2316,12 @@ def admin_settlement():
         by_company[key] += 1
 
     settlements = []
+    total_count = 0
+    total_amount = 0
     for (company, rep, biz), count in by_company.items():
         amount = count * 9500
+        total_count += count
+        total_amount += amount
         settlements.append({
             'company': company,
             'representative': rep,
@@ -2202,7 +2330,16 @@ def admin_settlement():
             'amount': amount,
         })
 
-    return render_template('admin/settlement.html', year=year, month=month, settlements=settlements)
+    # Ensure total_count and total_amount are always integers (not None)
+    total_count = int(total_count) if total_count else 0
+    total_amount = int(total_amount) if total_amount else 0
+
+    return render_template('admin/settlement.html', 
+                          year=year, 
+                          month=month, 
+                          settlements=settlements, 
+                          total_count=total_count, 
+                          total_amount=total_amount)
 
 
 @app.route('/admin/invoice')
