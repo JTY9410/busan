@@ -1153,31 +1153,121 @@ def login():
         if request.method == 'POST':
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '')
+            
+            if not username or not password:
+                flash('아이디와 비밀번호를 입력해주세요.', 'warning')
+                return render_template('auth/login.html')
+            
             if db is None:
+                try:
+                    import sys
+                    sys.stderr.write("Login error: db is None\n")
+                except Exception:
+                    pass
                 flash('데이터베이스가 초기화되지 않았습니다.', 'danger')
                 return render_template('auth/login.html')
             
+            # Ensure models are defined
             try:
-                user = db.session.query(Member).filter_by(username=username).first()
-                if user and user.check_password(password):
-                    if user.approval_status != '승인':
-                        flash('관리자 승인 후 로그인 가능합니다.', 'warning')
-                        return redirect(url_for('login'))
-                    login_user(user)
-                    return redirect(url_for('dashboard'))
-                flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+                if not _model_classes_defined:
+                    define_models()
             except Exception as e:
                 try:
                     import sys
-                    sys.stderr.write(f"Login query error: {e}\n")
+                    sys.stderr.write(f"Login error: Model definition failed: {e}\n")
+                except Exception:
+                    pass
+                flash('시스템 초기화 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'danger')
+                return render_template('auth/login.html')
+            
+            try:
+                # Query user with error handling
+                try:
+                    user = db.session.query(Member).filter_by(username=username).first()
+                except Exception as query_err:
+                    try:
+                        import sys
+                        import traceback
+                        sys.stderr.write(f"Login query error: {query_err}\n")
+                        sys.stderr.write(traceback.format_exc())
+                    except Exception:
+                        pass
+                    # Try to rollback and retry
+                    try:
+                        db.session.rollback()
+                        user = db.session.query(Member).filter_by(username=username).first()
+                    except Exception as retry_err:
+                        try:
+                            import sys
+                            sys.stderr.write(f"Login retry query error: {retry_err}\n")
+                        except Exception:
+                            pass
+                        flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                        return render_template('auth/login.html')
+                
+                if user:
+                    # Check password with error handling
+                    try:
+                        password_valid = user.check_password(password)
+                    except Exception as pwd_err:
+                        try:
+                            import sys
+                            sys.stderr.write(f"Login password check error: {pwd_err}\n")
+                        except Exception:
+                            pass
+                        flash('비밀번호 확인 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                        return render_template('auth/login.html')
+                    
+                    if password_valid:
+                        # Check approval status
+                        try:
+                            approval_status = getattr(user, 'approval_status', None)
+                            if approval_status != '승인':
+                                flash('관리자 승인 후 로그인 가능합니다.', 'warning')
+                                return redirect(url_for('login'))
+                            
+                            # Login user
+                            try:
+                                login_user(user)
+                                return redirect(url_for('dashboard'))
+                            except Exception as login_err:
+                                try:
+                                    import sys
+                                    sys.stderr.write(f"Login user error: {login_err}\n")
+                                except Exception:
+                                    pass
+                                flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                                return render_template('auth/login.html')
+                        except Exception as status_err:
+                            try:
+                                import sys
+                                sys.stderr.write(f"Login approval check error: {status_err}\n")
+                            except Exception:
+                                pass
+                            flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+                            return render_template('auth/login.html')
+                    else:
+                        flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+                else:
+                    flash('아이디 또는 비밀번호가 올바르지 않습니다.', 'danger')
+                    
+            except Exception as e:
+                try:
+                    import sys
+                    import traceback
+                    sys.stderr.write(f"Login processing error: {e}\n")
+                    sys.stderr.write(traceback.format_exc())
                 except Exception:
                     pass
                 flash('로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'danger')
+        
         return render_template('auth/login.html')
     except Exception as e:
         try:
             import sys
+            import traceback
             sys.stderr.write(f"Login route error: {e}\n")
+            sys.stderr.write(traceback.format_exc())
         except Exception:
             pass
         flash('로그인 페이지 로드 중 오류가 발생했습니다.', 'danger')
