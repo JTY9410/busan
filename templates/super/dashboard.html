@@ -7,7 +7,7 @@
     <p class="text-[#6b6b6b] text-lg">총괄관리자 대시보드</p>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-scale-in">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-scale-in">
     <!-- 파트너그룹만들기 Card -->
     <a href="{{ url_for('super_partner_groups') }}" class="group glass card-hover block">
       <div class="p-6">
@@ -70,30 +70,6 @@
         </h3>
         <p class="text-[#6b6b6b] text-sm leading-relaxed mb-6">
           파트너그룹별 정산을 진행합니다
-        </p>
-        <div class="mt-4">
-          <div class="btn-action bg-[#1a1a1a] text-white hover:bg-[#4a4a4a]">
-            <span>바로가기</span>
-            <i class="bi bi-arrow-right"></i>
-          </div>
-        </div>
-      </div>
-    </a>
-
-    <!-- 관리자페이지 Card -->
-    <a href="{{ url_for('admin_home') }}" class="group glass card-hover block">
-      <div class="p-6">
-        <div class="flex items-center justify-between mb-5">
-          <div class="w-12 h-12 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-            <i class="bi bi-gear text-2xl text-white"></i>
-          </div>
-          <i class="bi bi-arrow-right text-xl text-[#9b9b9b] group-hover:text-[#1a1a1a] transition-colors duration-300"></i>
-        </div>
-        <h3 class="text-xl font-semibold text-[#1a1a1a] mb-3 tracking-tight">
-          관리자페이지
-        </h3>
-        <p class="text-[#6b6b6b] text-sm leading-relaxed mb-6">
-          파트너그룹별 관리자 페이지로 이동합니다
         </p>
         <div class="mt-4">
           <div class="btn-action bg-[#1a1a1a] text-white hover:bg-[#4a4a4a]">

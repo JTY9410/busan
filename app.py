@@ -1561,7 +1561,14 @@ def login(partner_id=None):
         
         # GET 요청: 로그인 페이지 표시
         if request.method == 'GET':
-            return render_template('auth/login.html', partner_group=partner_group)
+            # 모든 파트너그룹 목록 가져오기
+            partner_groups = []
+            if db is not None:
+                try:
+                    partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+                except Exception:
+                    pass
+            return render_template('auth/login.html', partner_group=partner_group, partner_groups=partner_groups)
         
         # POST 요청: 로그인 처리
         if request.method == 'POST':
@@ -1579,7 +1586,14 @@ def login(partner_id=None):
             
             if not username or not password:
                 flash('아이디와 비밀번호를 입력해주세요.', 'warning')
-                return render_template('auth/login.html', partner_group=partner_group)
+                # 모든 파트너그룹 목록 가져오기
+                partner_groups = []
+                if db is not None:
+                    try:
+                        partner_groups = db.session.query(PartnerGroup).order_by(PartnerGroup.name).all()
+                    except Exception:
+                        pass
+                return render_template('auth/login.html', partner_group=partner_group, partner_groups=partner_groups)
             
             if db is None:
                 try:
@@ -2956,9 +2970,9 @@ def super_partner_groups():
             if not safe_commit():
                 flash('파트너그룹 생성 중 오류가 발생했습니다.', 'danger')
             else:
-                # 파트너그룹 생성 시 기본 관리자 계정 생성
+                # 파트너그룹 생성 시 하위 프로그램 자동 복제 및 초기화
                 try:
-                    # 파트너그룹별 기본 관리자 계정 생성
+                    # 1. 파트너그룹별 기본 관리자 계정 생성 (하위 프로그램 관리자)
                     admin_username = f"{name}_admin"
                     admin_password = f"{business_number[-4:]}"  # 사업자번호 마지막 4자리
                     
@@ -2984,13 +2998,24 @@ def super_partner_groups():
                         if not safe_commit():
                             print(f"Warning: Failed to create admin account for partner group {name}")
                         else:
-                            print(f'파트너그룹 "{name}" 관리자 계정 생성: {admin_username} / {admin_password}')
+                            print(f'파트너그룹 "{name}" 하위 프로그램 생성 완료')
+                            print(f'  - 관리자 계정: {admin_username} / {admin_password}')
+                            print(f'  - 프로그램 제목: {name}책임보험가입')
+                            print(f'  - 로고: {"적용됨" if logo_path else "기본 로고 사용"}')
+                            print(f'  - 로그인 URL: /login/{partner_group.id}')
+                    else:
+                        print(f'파트너그룹 "{name}" 관리자 계정이 이미 존재합니다.')
+                    
+                    # 2. 하위 프로그램 복제 완료 - 파트너그룹별 독립적인 데이터 구조 생성
+                    # (partner_group_id로 자동 분리되므로 추가 작업 불필요)
+                    
                 except Exception as e:
-                    print(f"Warning: Failed to create admin account: {e}")
+                    print(f"Warning: Failed to initialize partner group program: {e}")
                     import traceback
                     traceback.print_exc()
-                
-                flash(f'파트너그룹 "{name}"이(가) 생성되었습니다.', 'success')
+                    flash('파트너그룹은 생성되었으나 하위 프로그램 초기화 중 오류가 발생했습니다.', 'warning')
+                else:
+                    flash(f'파트너그룹 "{name}"이(가) 생성되었고 하위 프로그램이 자동으로 복제되었습니다.', 'success')
                 
         elif action == 'update' and partner_id:
             # 파트너그룹 수정

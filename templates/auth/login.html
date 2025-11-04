@@ -19,7 +19,6 @@
       {% else %}
         <h2 class="text-4xl font-bold gradient-text mb-2">현대해상책임보험프로그램</h2>
       {% endif %}
-      <p class="text-gray-600 font-medium">부산자동차매매사업자조합</p>
     </div>
 
     <!-- Login Card -->
@@ -39,10 +38,24 @@
         {% endif %}
       {% endwith %}
 
-      <form method="post" class="space-y-6">
-        {% if partner_group %}
-          <input type="hidden" name="partner_id" value="{{ partner_group.id }}">
-        {% endif %}
+      <form method="post" class="space-y-6" id="loginForm">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">
+            <i class="bi bi-building mr-2 text-blue-500"></i>파트너그룹 선택
+          </label>
+          <select name="partner_id" id="partner_select" 
+                  class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm text-gray-900 hover:border-gray-300">
+            <option value="">파트너그룹을 선택하세요 (선택사항)</option>
+            {% for pg in partner_groups %}
+              <option value="{{ pg.id }}" {% if partner_group and partner_group.id == pg.id %}selected{% endif %} 
+                      data-name="{{ pg.name }}" 
+                      data-logo="{{ url_for('uploaded_file', filename=pg.logo_path) if pg.logo_path else url_for('static', filename='logoh.png') }}">
+                {{ pg.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-2">
             <i class="bi bi-person mr-2 text-blue-500"></i>아이디
@@ -71,21 +84,59 @@
         <div class="text-center pt-4 border-t border-gray-200">
           <p class="text-sm text-gray-600">
             계정이 없으신가요?
-            {% if partner_group %}
-              <a href="{{ url_for('register', partner_id=partner_group.id) }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
-                회원가입
-              </a>
-            {% else %}
-              <a href="{{ url_for('register') }}" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
-                회원가입
-              </a>
-            {% endif %}
+            <a href="#" id="register_link" onclick="event.preventDefault(); const partnerId = document.getElementById('partner_select').value; if(partnerId) { window.location.href='{{ url_for('register') }}?partner_id=' + partnerId; } else { window.location.href='{{ url_for('register') }}'; }" class="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 ml-1">
+              회원가입
+            </a>
           </p>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+  // 파트너그룹 선택 시 로고와 제목 동적 업데이트
+  document.addEventListener('DOMContentLoaded', function() {
+    const partnerSelect = document.getElementById('partner_select');
+    const logoImg = document.querySelector('.text-center img');
+    const titleH2 = document.querySelector('.text-center h2');
+    
+    if (partnerSelect) {
+      partnerSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const partnerId = this.value;
+        const partnerName = selectedOption.getAttribute('data-name');
+        const partnerLogo = selectedOption.getAttribute('data-logo');
+        
+        if (partnerId && partnerName) {
+          // 파트너그룹이 선택된 경우
+          if (logoImg && partnerLogo) {
+            logoImg.src = partnerLogo;
+            logoImg.onerror = function() {
+              this.src = '{{ url_for("static", filename="logoh.png") }}';
+            };
+          }
+          if (titleH2) {
+            titleH2.textContent = partnerName + '책임보험가입';
+          }
+        } else {
+          // 파트너그룹이 선택되지 않은 경우 (기본값)
+          if (logoImg) {
+            logoImg.src = '{{ url_for("static", filename="logoh.png") }}';
+          }
+          if (titleH2) {
+            titleH2.textContent = '현대해상책임보험프로그램';
+          }
+        }
+      });
+      
+      // 페이지 로드 시 초기 상태 설정
+      if (partnerSelect.value) {
+        partnerSelect.dispatchEvent(new Event('change'));
+      }
+    }
+  });
+</script>
 {% endblock %}
 
 
