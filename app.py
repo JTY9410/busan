@@ -1472,9 +1472,14 @@ def serve_insurance_policy(insurance_id):
             flash('보험 신청을 찾을 수 없습니다.', 'danger')
             return redirect(url_for('dashboard'))
         
-        # Check permission: user can only view their own insurance policies unless admin
-        user_role = getattr(current_user, 'role', 'member')
-        if user_role != 'admin' and insurance.created_by_member_id != current_user.id:
+        # Check permission: allow super admin; else only admin or owner can view
+        is_super = False
+        try:
+            is_super = session.get('is_super_admin', False)
+        except Exception:
+            pass
+        user_role = getattr(current_user, 'role', 'member') if hasattr(current_user, 'role') else None
+        if not is_super and user_role != 'admin' and insurance.created_by_member_id != current_user.id:
             flash('권한이 없습니다.', 'danger')
             return redirect(url_for('dashboard'))
         

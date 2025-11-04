@@ -78,6 +78,7 @@
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차량명</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">차량등록일자</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">보험료</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">보험증권</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">비고</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">작업</th>
           </tr>
@@ -100,6 +101,15 @@
             <td class="px-4 py-3 whitespace-nowrap">{{ r.car_name or '' }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ r.car_registered_at.strftime('%Y-%m-%d') if r.car_registered_at else '' }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ '{:,}'.format(r.premium) if r.premium else '' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {% if r.insurance_policy_path %}
+                <a href="{{ url_for('serve_insurance_policy', insurance_id=r.id) }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                  <i class="bi bi-file-earmark-pdf mr-1"></i>보기
+                </a>
+              {% else %}
+                <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <span id="memo_{{ r.id }}">{{ r.memo or '' }}</span>
               <input type="text" name="memo" form="edit_form_{{ r.id }}" value="{{ r.memo or '' }}" 
